@@ -236,7 +236,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
           );
         })()}
         <form
-          className="mt-5 flex flex-col gap-2 sm:flex-row lg:max-w-md"
+          className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center lg:mx-auto lg:max-w-md"
           onSubmit={(e) => {
             e.preventDefault();
             mutate(() => ws.createWorkspace(nameInput));
@@ -249,7 +249,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
             onChange={(e) => setNameInput(e.target.value)}
             placeholder="Workspace name"
             maxLength={60}
-            className="w-full min-w-0 flex-1 rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm lg:text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700"
+            className="w-full min-w-0 flex-1 rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm shadow-[0_0_10px_rgba(16,185,129,0.25)] lg:text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:shadow-[0_0_16px_rgba(16,185,129,0.45)] dark:border-zinc-700"
           />
           <button
             type="submit"
