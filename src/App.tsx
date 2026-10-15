@@ -26,11 +26,6 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="flex flex-col gap-4">{children}</main>
-      <footer className="mt-2 text-center text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-500">
-        Text syncs directly between your devices — nothing is stored on any server.
-        <br />
-        Copy is manual (browsers don’t allow silent clipboard access). No offline delivery in the MVP.
-      </footer>
     </div>
   );
 }
