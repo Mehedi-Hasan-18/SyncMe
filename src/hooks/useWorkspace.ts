@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   approveDevice,
   clearWorkspaceId,
@@ -32,6 +32,8 @@ export interface Workspace {
   own: RosterDevice | null;
   pending: RosterDevice[];
   error: string | null;
+  /** Transient fetch trouble while last-good data stays on screen. */
+  notice: string | null;
   busy: boolean;
   pairing: PairingOffer | null;
   createWorkspace: (name: string) => Promise<string | null>;
@@ -58,8 +60,15 @@ export function useWorkspace(userId: string | null, peerId: string): Workspace {
   const [devices, setDevices] = useState<RosterDevice[]>([]);
   const [status, setStatus] = useState<WorkspaceStatus>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pairing, setPairing] = useState<PairingOffer | null>(null);
+  // Guards against refresh races, refetch storms, and error flicker.
+  const seqRef = useRef(0);
+  const everReadyRef = useRef(false);
+  const failuresRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Re-read the stored workspace when navigation changes
   // (e.g. returning from #/pair after a successful join).
@@ -70,54 +79,90 @@ export function useWorkspace(userId: string | null, peerId: string): Workspace {
   }, []);
 
   const refresh = useCallback(async () => {
+    const seq = ++seqRef.current;
     const sb = getClient();
     if (!sb) {
+      if (seq !== seqRef.current) return;
       setStatus('error');
       setError('Supabase is not configured.');
       return;
     }
     const stored = loadWorkspaceId();
     if (!userId) {
+      if (seq !== seqRef.current) return;
       setStatus('loading');
       return;
     }
     if (!stored) {
+      if (seq !== seqRef.current) return;
       setStatus('none');
       setDevices([]);
       setWorkspaceId(null);
       return;
     }
-    try {
-      const ws = await fetchWorkspace(sb, stored);
-      if (!ws) {
-        clearWorkspaceId();
-        setWorkspaceId(null);
-        setStatus('none');
-        setDevices([]);
+    // One immediate retry for transient blips (cold start, Wi-Fi hiccup).
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const ws = await fetchWorkspace(sb, stored);
+        if (seq !== seqRef.current) return;
+        if (!ws) {
+          clearWorkspaceId();
+          setWorkspaceId(null);
+          setStatus('none');
+          setDevices([]);
+          return;
+        }
+        const roster = await fetchRoster(sb, stored);
+        if (seq !== seqRef.current) return;
+        const own = roster.find((d) => d.userId === userId) ?? null;
+        if (!own) {
+          clearWorkspaceId();
+          setWorkspaceId(null);
+          setStatus('none');
+          setDevices([]);
+          return;
+        }
+        setWorkspaceName(ws.name);
+        setDevices(roster);
+        setWorkspaceId(stored);
+        if (own.revoked) {
+          setStatus('revoked');
+          return;
+        }
+        setStatus('ready');
+        setError(null);
+        setNotice(null);
+        everReadyRef.current = true;
+        failuresRef.current = 0;
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+        }
+        await touchDevice(sb, own.id, peerId || null);
         return;
+      } catch (err) {
+        lastErr = err;
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 1000));
+          if (seq !== seqRef.current) return;
+        }
       }
-      const roster = await fetchRoster(sb, stored);
-      const own = roster.find((d) => d.userId === userId) ?? null;
-      if (!own) {
-        clearWorkspaceId();
-        setWorkspaceId(null);
-        setStatus('none');
-        setDevices([]);
-        return;
-      }
-      setWorkspaceName(ws.name);
-      setDevices(roster);
-      setWorkspaceId(stored);
-      if (own.revoked) {
-        setStatus('revoked');
-        return;
-      }
-      setStatus('ready');
-      setError(null);
-      await touchDevice(sb, own.id, peerId || null);
-    } catch (err) {
+    }
+    if (seq !== seqRef.current) return;
+    failuresRef.current += 1;
+    if (everReadyRef.current && failuresRef.current <= 3) {
+      // Transient trouble with last-good data on screen: keep the UI,
+      // show a quiet banner, and retry once in the background.
+      setNotice('Having trouble reaching the server — showing last known state.');
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        refresh();
+      }, 4000);
+    } else {
       setStatus('error');
-      setError(err instanceof Error ? err.message : 'Could not load workspace.');
+      setError(lastErr instanceof Error ? lastErr.message : 'Could not load workspace.');
     }
   }, [userId, peerId]);
 
@@ -125,16 +170,29 @@ export function useWorkspace(userId: string | null, peerId: string): Workspace {
     refresh();
   }, [refresh, workspaceId]);
 
-  // Live roster: any device change in this workspace refetches.
+  // Live roster: any device change in this workspace refetches (debounced,
+  // since heartbeats and bursts of edits would otherwise refetch constantly).
   useEffect(() => {
     const sb = getClient();
     if (!sb || !userId || !workspaceId || (status !== 'ready' && status !== 'revoked')) {
       return;
     }
     return subscribeRoster(sb, workspaceId, () => {
-      refresh();
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        refresh();
+      }, 400);
     });
   }, [userId, workspaceId, status, refresh]);
+
+  // Clear pending timers on unmount.
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
 
   // Presence heartbeat while the workspace is active.
   useEffect(() => {
@@ -248,6 +306,7 @@ export function useWorkspace(userId: string | null, peerId: string): Workspace {
     own,
     pending,
     error,
+    notice,
     busy,
     pairing,
     createWorkspace,

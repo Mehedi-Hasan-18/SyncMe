@@ -184,8 +184,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
       <div className="flex items-center justify-between gap-2">
         <h2 className="truncate text-sm font-semibold" title={ws.workspaceName}>
           {ws.workspaceName}
-        </h2>
-        <button
+        </h2>        <button
           type="button"
           onClick={() => {
             if (confirmLeave) {
@@ -201,6 +200,19 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
           {confirmLeave ? 'Click again to leave' : 'Leave'}
         </button>
       </div>
+
+      {ws.notice && (
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <span>{ws.notice} Retrying…</span>
+          <button
+            type="button"
+            onClick={() => ws.refresh()}
+            className="shrink-0 rounded-md px-2 py-1 font-medium hover:bg-amber-100 dark:hover:bg-amber-900"
+          >
+            Retry now
+          </button>
+        </div>
+      )}
 
       {ws.pending.length > 0 && (
         <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
