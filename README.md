@@ -19,8 +19,11 @@ See [`sds.md`](./sds.md) for the full brief, architecture, and milestones.
 - Node 20+
 - A free [Supabase](https://supabase.com) project with **Anonymous sign-in
   enabled** (Authentication → Providers → Anonymous → on)
-- The migration in [`supabase/migrations/0001_init.sql`](./supabase/migrations/0001_init.sql)
-  applied (via `supabase db push` or the SQL editor)
+- Migrations applied in order (via `supabase db push` or the SQL editor):
+  1. [`supabase/migrations/0001_init.sql`](./supabase/migrations/0001_init.sql) —
+     workspaces, devices, pairing tokens + RLS
+  2. [`supabase/migrations/0002_pairing.sql`](./supabase/migrations/0002_pairing.sql) —
+     approval flag, peer ids, approve/revoke RPCs, Realtime publication
 
 ## Run locally
 
@@ -50,7 +53,29 @@ npm run lint    # typecheck only
    **Connect** box, and press Connect.
 4. Type in the shared editor on either side — text appears live on the other.
 5. Type **simultaneously** on both — both contributions survive (CRDT merge).
-6. Reload one page — reopening the connection re-syncs the full state.
+6. Reload either page — it auto-reconnects and re-syncs the full state.
+
+## Pairing test (M2 acceptance)
+
+Requires migration `0002_pairing.sql` (Realtime is enabled by the migration;
+verify in Supabase → Database → Replication that `devices` and
+`pairing_tokens` are listed if approvals don't arrive live).
+
+1. On the laptop: **Create** a private workspace.
+2. Press **Pair a new device** — a QR code + invite link appear (5:00 countdown).
+3. On the phone: scan the QR (or open the copied link), name the device,
+   **Request to join**. The phone shows a waiting screen.
+4. On the laptop: the request appears in amber — press **Approve**. The phone
+   joins automatically and appears in the device list.
+5. Negative paths: let a code expire (or press **New code**) and join with the
+   old link → rejected. Request again and press **Deny** → phone shows denial.
+   Reuse the same link twice → second attempt rejected (single-use).
+6. **Revoke**: on either device, revoke the other — it drops from the list and
+   the revoked device shows an "access revoked" banner. **Connect** buttons on
+   the roster link members with one click, no id typing.
+7. Check Supabase → Table Editor: `workspaces` has 1 row, `devices` has one
+   row per device (approved flags), `pairing_tokens` holds only hashes —
+   never text or file bytes.
 
 ## Deploy to Vercel (free)
 
