@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Workspace } from '../hooks/useWorkspace';
 import { formatCountdown, msUntilExpiry, shortId } from '../lib/device';
@@ -141,27 +141,100 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
     return (
       <section aria-label="Workspace" className={card}>
         <h2 className="text-sm font-normal lg:text-[21px]">Private workspace</h2>
-        <ol className="mt-3 space-y-2 lg:flex lg:items-center lg:gap-3 lg:space-y-0">
-          {['Create the workspace', 'Connect your laptop', 'Type anything'].map((title, i) => (
-            <Fragment key={title}>
-              {i > 0 && (
-                <span aria-hidden="true" className="flex justify-center font-bold text-emerald-600">
-                  <span className="lg:hidden">↓</span>
-                  <span className="hidden lg:inline">→</span>
-                </span>
-              )}
-              <li key={title} className="flex items-center gap-2.5">
+        {(() => {
+          const steps = [
+            { icon: '📝', title: 'Create the workspace' },
+            { icon: '💻', title: 'Connect your laptop' },
+            { icon: '⌨️', title: 'Type anything' },
+          ];
+          const card =
+            'relative rounded-2xl bg-zinc-100 p-3 shadow-sm dark:bg-zinc-800';
+          const iconBubble =
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg dark:bg-emerald-950';
+          const title = 'text-xs lg:text-base';
+          const notchDown =
+            'absolute -bottom-[7px] left-1/2 h-3.5 w-3.5 -translate-x-1/2 rotate-45 bg-zinc-100 dark:bg-zinc-800';
+          const notchUp =
+            'absolute -top-[7px] left-1/2 h-3.5 w-3.5 -translate-x-1/2 rotate-45 bg-zinc-100 dark:bg-zinc-800';
+          const node = (left: string) => (
+            <span
+              aria-hidden="true"
+              style={{ left }}
+              className="absolute top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500 text-base font-bold text-white"
+            >
+              ✓
+            </span>
+          );
+          return (
+            <>
+              {/* Mobile: vertical timeline */}
+              <ol className="relative mt-3 space-y-3 lg:hidden">
                 <span
                   aria-hidden="true"
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white"
-                >
-                  {i + 1}
-                </span>
-                <span className="text-xs font-semibold lg:text-base">{title}</span>
-              </li>
-            </Fragment>
-          ))}
-        </ol>
+                  className="absolute bottom-5 left-3 top-5 w-1 rounded-full bg-emerald-100 dark:bg-emerald-950"
+                />
+                {steps.map((s) => (
+                  <li key={s.title} className="relative flex items-center gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white"
+                    >
+                      ✓
+                    </span>
+                    <span className={`${card} flex flex-1 items-center gap-3`}>
+                      <span aria-hidden="true" className={iconBubble}>
+                        {s.icon}
+                      </span>
+                      <span className={title}>{s.title}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              {/* Desktop: alternating cards on a check-node track */}
+              <div className="mt-4 hidden lg:block" role="list" aria-label="Setup steps">
+                <div className="grid grid-cols-3 gap-10 px-14" role="listitem">
+                  <div className={card}>
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className={iconBubble}>
+                        {steps[0].icon}
+                      </span>
+                      <span className={title}>{steps[0].title}</span>
+                    </span>
+                    <span aria-hidden="true" className={notchDown} />
+                  </div>
+                  <span />
+                  <div className={card}>
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className={iconBubble}>
+                        {steps[2].icon}
+                      </span>
+                      <span className={title}>{steps[2].title}</span>
+                    </span>
+                    <span aria-hidden="true" className={notchDown} />
+                  </div>
+                </div>
+                <div className="relative mx-14 my-1 h-3.5 rounded-full bg-emerald-100 dark:bg-emerald-950">
+                  {node('16.666%')}
+                  {node('50%')}
+                  {node('83.333%')}
+                </div>
+                <div className="grid grid-cols-3 gap-10 px-14" role="listitem">
+                  <span />
+                  <div className={card}>
+                    <span aria-hidden="true" className={notchUp} />
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className={iconBubble}>
+                        {steps[1].icon}
+                      </span>
+                      <span className={title}>{steps[1].title}</span>
+                    </span>
+                  </div>
+                  <span />
+                </div>
+              </div>
+            </>
+          );
+        })()}
         <form
           className="mt-3 flex gap-2"
           onSubmit={(e) => {
