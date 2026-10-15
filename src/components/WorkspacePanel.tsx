@@ -141,7 +141,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
     return (
       <section aria-label="Workspace" className={card}>
         <h2 className="text-sm font-semibold lg:text-[21px]">Private workspace</h2>
-        <ol className="mt-3 space-y-2">
+        <ol className="mt-3 space-y-2 lg:flex lg:items-center lg:gap-6 lg:space-y-0">
           {['Create the workspace', 'Connect your laptop', 'Type anything'].map((title, i) => (
             <li key={title} className="flex items-center gap-2.5">
               <span
