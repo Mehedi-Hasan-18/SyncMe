@@ -4,6 +4,8 @@
  * string and URL base are parameters) so they stay unit-testable in Node.
  */
 
+import { sha256HexFallback } from './sha256';
+
 /** 32 random bytes as 64 hex chars — the raw single-use pairing secret. */
 export function randomHex(bytes = 32): string {
   const buf = new Uint8Array(bytes);
@@ -13,8 +15,16 @@ export function randomHex(bytes = 32): string {
 
 /** SHA-256 hex digest. Only the hash is ever stored server-side. */
 export async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  try {
+    const subtle = globalThis.crypto?.subtle;
+    if (subtle) {
+      const digest = await subtle.digest('SHA-256', new TextEncoder().encode(input));
+      return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch {
+    // Web Crypto unavailable or failed — use the pure-JS fallback below.
+  }
+  return sha256HexFallback(input);
 }
 
 /** Pairing deep-link carried by the QR code, e.g. `https://x/#​/pair?ws=…&token=…`. */
