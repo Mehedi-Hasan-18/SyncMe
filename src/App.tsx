@@ -79,6 +79,8 @@ export default function App() {
         peers={sync.peers}
         peerId={sync.peerId}
         ready={sync.lifecycle === 'open'}
+        connectError={sync.connectError}
+        onClearConnectError={sync.clearConnectError}
         onConnect={sync.connectTo}
         onDisconnect={sync.disconnectFrom}
       />

@@ -9,6 +9,7 @@ import {
   loadKnownPeers,
   rememberPeerId,
 } from '../lib/peer';
+import { shortId } from '../lib/device';
 import {
   REMOTE_ORIGIN,
   applyLocalEdit,
@@ -34,6 +35,9 @@ export interface PeerSync {
   setText: (next: string) => void;
   connectTo: (remoteId: string) => string | null;
   disconnectFrom: (remoteId: string) => void;
+  /** Last async connection failure (timeout, unreachable, ICE failure). */
+  connectError: string | null;
+  clearConnectError: () => void;
   /** Timestamp of the last applied remote edit, for "peer is typing" hints. */
   lastRemoteAt: number | null;
 }
@@ -59,11 +63,15 @@ export function usePeerSync(): PeerSync {
   const outgoingRef = useRef(new Set<string>());
   const autoTriedRef = useRef(new Set<string>());
   const manualDialRef = useRef<{ id: string; at: number } | null>(null);
+  const expectedCloseRef = useRef(new Set<string>());
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
   const lifecycleRef = useRef<PeerLifecycle>('starting');
 
   const [peerId] = useState(() => getOrCreatePeerId());
   const [lifecycle, setLifecycleState] = useState<PeerLifecycle>('starting');
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [peers, setPeers] = useState<RemotePeer[]>([]);
   const [text, setTextState] = useState('');
   const [lastRemoteAt, setLastRemoteAt] = useState<number | null>(null);
@@ -102,13 +110,42 @@ export function usePeerSync(): PeerSync {
     [channel],
   );
 
+  const clearConnectError = useCallback(() => setConnectError(null), []);
+
+  /** Drop a failed/stuck connection and tell the user why, in plain language. */
+  const failConnection = useCallback(
+    (id: string, reason: string) => {
+      outgoingRef.current.delete(id);
+      const conn = connsRef.current.get(id);
+      try {
+        conn?.close();
+      } catch {
+        // Already dead.
+      }
+      removePeer(id);
+      setConnectError(reason);
+    },
+    [removePeer],
+  );
+
   const wireConnection = useCallback(
     (conn: DataConnection) => {
       connsRef.current.set(conn.peer, conn);
       upsertPeer(conn.peer, 'connecting');
+      // A link that never opens is worse than a clear error: time it out.
+      const openTimer = setTimeout(() => {
+        if (!conn.open) {
+          failConnection(
+            conn.peer,
+            `Couldn't reach ${shortId(conn.peer)} within 20s — is SyncMe open on that device, on the same Wi-Fi?`,
+          );
+        }
+      }, 20_000);
       conn.on('open', () => {
+        clearTimeout(openTimer);
         upsertPeer(conn.peer, 'open');
         rememberPeerId(conn.peer);
+        setConnectError(null);
         try {
           conn.send(channel.initialMessage());
         } catch {
@@ -117,14 +154,32 @@ export function usePeerSync(): PeerSync {
       });
       conn.on('data', (raw) => handleData(conn, raw));
       conn.on('close', () => {
+        clearTimeout(openTimer);
         outgoingRef.current.delete(conn.peer);
+        const expected = expectedCloseRef.current.delete(conn.peer);
+        const wasOpen = connsRef.current.has(conn.peer);
         removePeer(conn.peer);
+        if (!expected && wasOpen) {
+          setConnectError(`Connection to ${shortId(conn.peer)} was lost.`);
+        }
       });
-      conn.on('error', () => {
-        // A close event (or explicit disconnect) cleans the row up.
+      conn.on('error', (err) => {
+        clearTimeout(openTimer);
+        const detail = err instanceof Error && err.message ? `: ${err.message}` : '';
+        failConnection(conn.peer, `Connection to ${shortId(conn.peer)} failed${detail}. Retry once both devices show “online”.`);
+      });
+      conn.on('iceStateChanged', (state) => {
+        // ICE gave up before the channel ever opened (NAT/firewall).
+        if ((state === 'failed' || state === 'disconnected' || state === 'closed') && !conn.open) {
+          clearTimeout(openTimer);
+          failConnection(
+            conn.peer,
+            `Couldn't establish a direct link to ${shortId(conn.peer)} (network). Keep both devices on the same Wi-Fi and retry.`,
+          );
+        }
       });
     },
-    [channel, handleData, removePeer, upsertPeer],
+    [channel, handleData, removePeer, upsertPeer, failConnection],
   );
 
   const dial = useCallback(
@@ -150,7 +205,28 @@ export function usePeerSync(): PeerSync {
   useEffect(() => {
     const peer = createPeer(peerId);
     peerRef.current = peer;
+
+    const scheduleReconnect = (delayMs: number) => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        const current = peerRef.current;
+        if (!current || current.destroyed || !current.disconnected) return;
+        if (reconnectAttemptsRef.current >= 5) {
+          setLifecycleError('Lost the signaling connection. Reload the page to reconnect.');
+          return;
+        }
+        reconnectAttemptsRef.current += 1;
+        try {
+          current.reconnect();
+        } catch {
+          scheduleReconnect(3000);
+        }
+      }, delayMs);
+    };
+
     peer.on('open', () => {
+      reconnectAttemptsRef.current = 0;
       setLifecycle('open');
       setLifecycleError(null);
       // Auto-reconnect to previously linked devices (e.g. after a reload).
@@ -182,7 +258,11 @@ export function usePeerSync(): PeerSync {
       outgoingRef.current.delete(conn.peer);
       wireConnection(conn);
     });
-    peer.on('disconnected', () => setLifecycle('disconnected'));
+    peer.on('disconnected', () => {
+      setLifecycle('disconnected');
+      // Signaling drops happen (sleep, network blips) — rejoin automatically.
+      scheduleReconnect(2000);
+    });
     peer.on('close', () => setLifecycle('closed'));
     peer.on('error', (err) => {
       const type = (err as unknown as { type?: string }).type;
@@ -190,23 +270,36 @@ export function usePeerSync(): PeerSync {
       const manual = manualDialRef.current;
       const wasManual =
         manual !== null && manual.id === failedId && Date.now() - manual.at < 15000;
-      if (type === 'peer-unavailable' && failedId && !wasManual) {
-        // Stale auto-reconnect target (id rotated, app data cleared…):
-        // drop it quietly instead of flashing a banner.
+      if (type === 'peer-unavailable' && failedId) {
         outgoingRef.current.delete(failedId);
-        forgetPeerId(failedId);
         removePeer(failedId);
+        if (wasManual) {
+          // The user just typed this id: explain, don't touch signaling state.
+          setConnectError(
+            `Couldn't reach ${shortId(failedId)} — check the id and confirm SyncMe is open on that device.`,
+          );
+        } else {
+          // Stale auto-reconnect target (id rotated, app data cleared…):
+          // drop it quietly instead of flashing a banner.
+          forgetPeerId(failedId);
+        }
+        return;
+      }
+      if (peer.disconnected) {
+        setLifecycle('disconnected');
+        scheduleReconnect(3000);
         return;
       }
       setLifecycleError(err.message);
-      if (peer.disconnected) setLifecycle('disconnected');
-      else if (peer.destroyed) setLifecycle('closed');
+      if (peer.destroyed) setLifecycle('closed');
       else setLifecycle('error');
     });
     return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       peerRef.current = null;
       connsRef.current.clear();
       outgoingRef.current.clear();
+      expectedCloseRef.current.clear();
       peer.destroy();
     };
   }, [peerId, wireConnection, dial, removePeer, setLifecycle]);
@@ -264,6 +357,7 @@ export function usePeerSync(): PeerSync {
       if (lifecycleRef.current !== 'open') {
         return 'Signaling isn’t ready yet — wait for “online”, then retry.';
       }
+      setConnectError(null);
       manualDialRef.current = { id: clean, at: Date.now() };
       return dial(clean) ? null : 'Could not start the connection. Check the id and retry.';
     },
@@ -272,8 +366,10 @@ export function usePeerSync(): PeerSync {
 
   const disconnectFrom = useCallback(
     (remoteId: string) => {
+      setConnectError(null);
       forgetPeerId(remoteId);
       outgoingRef.current.delete(remoteId);
+      expectedCloseRef.current.add(remoteId);
       const conn = connsRef.current.get(remoteId);
       try {
         conn?.close();
@@ -294,6 +390,8 @@ export function usePeerSync(): PeerSync {
     setText,
     connectTo,
     disconnectFrom,
+    connectError,
+    clearConnectError,
     lastRemoteAt,
   };
 }

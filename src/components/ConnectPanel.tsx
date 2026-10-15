@@ -5,11 +5,13 @@ interface Props {
   peers: RemotePeer[];
   peerId: string;
   ready: boolean;
+  connectError: string | null;
+  onClearConnectError: () => void;
   onConnect: (remoteId: string) => string | null;
   onDisconnect: (remoteId: string) => void;
 }
 
-export function ConnectPanel({ peers, peerId, ready, onConnect, onDisconnect }: Props) {
+export function ConnectPanel({ peers, peerId, ready, connectError, onClearConnectError, onConnect, onDisconnect }: Props) {
   const [input, setInput] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -84,6 +86,19 @@ export function ConnectPanel({ peers, peerId, ready, onConnect, onDisconnect }: 
           {formError}
         </p>
       )}
+      {connectError && (
+        <p role="alert" className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-red-50 p-2.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+          <span>{connectError}</span>
+          <button
+            type="button"
+            onClick={onClearConnectError}
+            aria-label="Dismiss connection error"
+            className="shrink-0 rounded px-1 font-bold hover:bg-red-100 dark:hover:bg-red-900"
+          >
+            ✕
+          </button>
+        </p>
+      )}
 
       <div className="mt-3">
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
@@ -105,9 +120,14 @@ export function ConnectPanel({ peers, peerId, ready, onConnect, onDisconnect }: 
                     className={`inline-block h-2 w-2 shrink-0 rounded-full ${p.status === 'open' ? 'bg-emerald-500' : 'bg-amber-500'}`}
                     aria-hidden="true"
                   />
-                  <code className="truncate font-mono text-xs" title={p.id}>
-                    {p.id}
-                  </code>
+                  <span className="min-w-0">
+                    <code className="block truncate font-mono text-xs" title={p.id}>
+                      {p.id}
+                    </code>
+                    <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {p.status === 'open' ? 'connected' : 'connecting…'}
+                    </span>
+                  </span>
                 </span>
                 <button
                   type="button"
