@@ -20,7 +20,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div>
           <h1 className="text-xl font-bold tracking-tight lg:text-[21px]">SyncMe</h1>
           <p className="text-xs lg:text-base text-zinc-500 dark:text-zinc-400">
-            OneSpace · your devices, one clipboard · peer-to-peer
+            One clipboard for all devices.
           </p>
         </div>
       </header>
