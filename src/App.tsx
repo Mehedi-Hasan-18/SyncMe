@@ -21,8 +21,9 @@ function Shell({ children }: { children: React.ReactNode }) {
           <h1 className="text-xl tracking-tight lg:text-[21px]" aria-label="SyncMe">
             <span className="font-sans font-extrabold text-emerald-600 dark:text-emerald-400">Sync</span><span className="font-serif font-bold italic text-amber-500 dark:text-amber-400">Me</span>
           </h1>
-          <p className="text-xs lg:text-base text-zinc-500 dark:text-zinc-400">
-            One clipboard for all devices.
+          <p className="font-serif text-xs italic lg:text-base">
+            <span className="text-emerald-700 dark:text-emerald-300">One clipboard</span>
+            <span className="text-amber-600 dark:text-amber-300"> for all devices.</span>
           </p>
         </div>
       </header>
