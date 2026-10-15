@@ -25,9 +25,11 @@ interface Props {
   peerId: string;
   connectedIds: string[];
   onConnectPeer: (peerId: string) => string | null;
+  onDisconnectPeer: (peerId: string) => void;
+  onDisconnectAll: () => void;
 }
 
-export function WorkspacePanel({ userId, peerId, connectedIds, onConnectPeer }: Props) {
+export function WorkspacePanel({ userId, peerId, connectedIds, onConnectPeer, onDisconnectPeer, onDisconnectAll }: Props) {
   const ws = useWorkspace(userId, peerId);
   const [nameInput, setNameInput] = useState('My workspace');
   const [actionError, setActionError] = useState<string | null>(null);
@@ -46,6 +48,35 @@ export function WorkspacePanel({ userId, peerId, connectedIds, onConnectPeer }: 
     const err = await fn();
     if (err) setActionError(err);
   };
+
+  // Revoking/denying also severs the live link immediately (the roster
+  // effect below covers revocations issued by *other* members).
+  const severAnd = (
+    deviceId: string,
+    devicePeerId: string | null,
+    action: (id: string) => Promise<string | null>,
+  ) =>
+    mutate(async () => {
+      const err = await action(deviceId);
+      if (!err && devicePeerId) onDisconnectPeer(devicePeerId);
+      return err;
+    });
+
+  // Revocation is enforced on the data plane too: sever live links to
+  // revoked devices so neither side can keep syncing (or auto-redial).
+  useEffect(() => {
+    for (const d of ws.devices) {
+      if (d.revoked && d.peerId && connectedIds.includes(d.peerId)) {
+        onDisconnectPeer(d.peerId);
+      }
+    }
+  }, [ws.devices, connectedIds, onDisconnectPeer]);
+
+  // If our own access was revoked, drop everything and forget all devices
+  // so this client can neither sync nor auto-reconnect back in.
+  useEffect(() => {
+    if (ws.status === 'revoked') onDisconnectAll();
+  }, [ws.status, onDisconnectAll]);
 
   const copyLink = async () => {
     if (!ws.pairing) return;
@@ -204,7 +235,7 @@ export function WorkspacePanel({ userId, peerId, connectedIds, onConnectPeer }: 
                   <button
                     type="button"
                     disabled={ws.busy}
-                    onClick={() => mutate(() => ws.deny(d.id))}
+                    onClick={() => severAnd(d.id, d.peerId, ws.deny)}
                     className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-white dark:border-zinc-600 dark:hover:bg-zinc-800"
                   >
                     Deny
@@ -262,7 +293,7 @@ export function WorkspacePanel({ userId, peerId, connectedIds, onConnectPeer }: 
                       <button
                         type="button"
                         disabled={ws.busy}
-                        onClick={() => mutate(() => ws.revoke(d.id))}
+                        onClick={() => severAnd(d.id, d.peerId, ws.revoke)}
                         className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950"
                       >
                         Revoke

@@ -38,6 +38,8 @@ export interface PeerSync {
   /** Last async connection failure (timeout, unreachable, ICE failure). */
   connectError: string | null;
   clearConnectError: () => void;
+  /** Close every link and forget every device (e.g. after our access is revoked). */
+  disconnectAll: () => void;
   /** Timestamp of the last applied remote edit, for "peer is typing" hints. */
   lastRemoteAt: number | null;
 }
@@ -116,6 +118,7 @@ export function usePeerSync(): PeerSync {
   const failConnection = useCallback(
     (id: string, reason: string) => {
       outgoingRef.current.delete(id);
+      expectedCloseRef.current.add(id);
       const conn = connsRef.current.get(id);
       try {
         conn?.close();
@@ -132,9 +135,13 @@ export function usePeerSync(): PeerSync {
     (conn: DataConnection) => {
       connsRef.current.set(conn.peer, conn);
       upsertPeer(conn.peer, 'connecting');
+      // Guards against superseded duplicates: only the connection currently
+      // registered for a peer may touch its row or report errors. A stale
+      // duplicate dying must never kill the surviving channel.
+      const isCurrent = () => connsRef.current.get(conn.peer) === conn;
       // A link that never opens is worse than a clear error: time it out.
       const openTimer = setTimeout(() => {
-        if (!conn.open) {
+        if (isCurrent() && !conn.open) {
           failConnection(
             conn.peer,
             `Couldn't reach ${shortId(conn.peer)} within 20s — is SyncMe open on that device, on the same Wi-Fi?`,
@@ -142,6 +149,14 @@ export function usePeerSync(): PeerSync {
         }
       }, 20_000);
       conn.on('open', () => {
+        if (!isCurrent()) {
+          try {
+            conn.close();
+          } catch {
+            // Superseded duplicate.
+          }
+          return;
+        }
         clearTimeout(openTimer);
         upsertPeer(conn.peer, 'open');
         rememberPeerId(conn.peer);
@@ -152,9 +167,12 @@ export function usePeerSync(): PeerSync {
           // Handled via error/close events below.
         }
       });
-      conn.on('data', (raw) => handleData(conn, raw));
+      conn.on('data', (raw) => {
+        if (isCurrent()) handleData(conn, raw);
+      });
       conn.on('close', () => {
         clearTimeout(openTimer);
+        if (!isCurrent()) return;
         outgoingRef.current.delete(conn.peer);
         const expected = expectedCloseRef.current.delete(conn.peer);
         const wasOpen = connsRef.current.has(conn.peer);
@@ -165,12 +183,15 @@ export function usePeerSync(): PeerSync {
       });
       conn.on('error', (err) => {
         clearTimeout(openTimer);
+        if (!isCurrent()) return;
         const detail = err instanceof Error && err.message ? `: ${err.message}` : '';
         failConnection(conn.peer, `Connection to ${shortId(conn.peer)} failed${detail}. Retry once both devices show “online”.`);
       });
       conn.on('iceStateChanged', (state) => {
-        // ICE gave up before the channel ever opened (NAT/firewall).
-        if ((state === 'failed' || state === 'disconnected' || state === 'closed') && !conn.open) {
+        // ICE gave up before the channel ever opened (NAT/firewall). Only
+        // terminal states — a pre-open 'disconnected' can still recover and
+        // the 20s timeout remains as the backstop.
+        if ((state === 'failed' || state === 'closed') && isCurrent() && !conn.open) {
           clearTimeout(openTimer);
           failConnection(
             conn.peer,
@@ -253,7 +274,8 @@ export function usePeerSync(): PeerSync {
       try {
         existing?.close();
       } catch {
-        // Replaced by the incoming channel.
+        // Replaced by the incoming channel. Its close event is ignored via
+        // the isCurrent() guard — it is no longer the registered channel.
       }
       outgoingRef.current.delete(conn.peer);
       wireConnection(conn);
@@ -380,6 +402,24 @@ export function usePeerSync(): PeerSync {
     [removePeer],
   );
 
+  const disconnectAll = useCallback(() => {
+    setConnectError(null);
+    for (const id of connsRef.current.keys()) {
+      expectedCloseRef.current.add(id);
+      forgetPeerId(id);
+    }
+    for (const conn of connsRef.current.values()) {
+      try {
+        conn.close();
+      } catch {
+        // Already dead.
+      }
+    }
+    connsRef.current.clear();
+    outgoingRef.current.clear();
+    setPeers([]);
+  }, []);
+
   return {
     peerId,
     lifecycle,
@@ -392,6 +432,7 @@ export function usePeerSync(): PeerSync {
     disconnectFrom,
     connectError,
     clearConnectError,
+    disconnectAll,
     lastRemoteAt,
   };
 }

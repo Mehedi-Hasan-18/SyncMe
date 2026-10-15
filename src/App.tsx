@@ -67,6 +67,8 @@ export default function App() {
         peerId={sync.peerId}
         connectedIds={sync.peers.map((p) => p.id)}
         onConnectPeer={sync.connectTo}
+        onDisconnectPeer={sync.disconnectFrom}
+        onDisconnectAll={sync.disconnectAll}
       />
       <StatusCard
         session={session}
