@@ -68,12 +68,6 @@ describe('control validation', () => {
       id: ID,
       sha256: HASH,
     });
-    expect(normalizeFileControl({ type: 'file-received', id: ID, ok: true })).toEqual({
-      type: 'file-received',
-      id: ID,
-      ok: true,
-      error: undefined,
-    });
     expect(normalizeFileControl({ type: 'file-cancel', id: ID })).toEqual({ type: 'file-cancel', id: ID });
   });
 
@@ -87,7 +81,6 @@ describe('control validation', () => {
     ).toBeNull();
     expect(normalizeFileControl({ type: 'file-offer', id: ID, name: 'a', size: 1, mime: 't', sha256: 'zzz' })).toBeNull();
     expect(normalizeFileControl({ type: 'file-end', id: ID, sha256: 'short' })).toBeNull();
-    expect(normalizeFileControl({ type: 'file-received', id: ID, ok: 'yes' })).toBeNull();
     expect(normalizeFileControl({ type: 'nope', id: ID })).toBeNull();
     expect(normalizeFileControl({ kind: 'doc-update', update: 'eA==' })).toBeNull();
   });

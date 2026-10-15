@@ -6,7 +6,6 @@ import {
   FILE_CHANNEL,
   MAX_BUFFERED,
   MAX_INBOX_ENTRIES,
-  RECEIPT_TIMEOUT_MS,
   TRANSFER_TIMEOUT_MS,
   decodeChunk,
   encodeChunk,
@@ -76,6 +75,8 @@ interface InRuntime {
   conn: DataConnection | null;
   cancelled: boolean;
   settled: boolean;
+  /** file-end arrived on the control channel (byte arrival is tracked separately). */
+  endReceived: boolean;
   lastActivity: number;
 }
 
@@ -117,7 +118,6 @@ export function useQuickDrop(api: QuickDropApi) {
   const inRt = useRef(new Map<string, InRuntime>());
   const activePeer = useRef(new Set<string>());
   const queue = useRef<string[]>([]);
-  const receiptWaiters = useRef(new Map<string, (ok: boolean) => void>());
   const apiRef = useRef(api);
   apiRef.current = api;
 
@@ -254,14 +254,9 @@ export function useQuickDrop(api: QuickDropApi) {
         }
         // All bytes flushed into SCTP; completion is confirmed by receipt.
         live.sendExtension(rt.peerId, FILE_CHANNEL, { type: 'file-end', id, sha256: rt.hash });
-        const confirmed = await new Promise<boolean>((resolve) => {
-          receiptWaiters.current.set(id, resolve);
-          setTimeout(() => {
-            if (receiptWaiters.current.delete(id)) resolve(false);
-          }, RECEIPT_TIMEOUT_MS);
-        });
-        if (rt.cancelled) throw new Cancelled();
-        if (!confirmed) throw new Error('No confirmation from the receiver.');
+        // No receiver confirmation by design (auto-accept): the sender is
+        // done once every byte is flushed and file-end is sent. Integrity is
+        // verified receiver-side and shown as its own state there.
         rt.settled = true;
         patchOut(id, { status: 'done', sent: rt.file.size, error: null });
       } catch (err) {
@@ -450,6 +445,7 @@ export function useQuickDrop(api: QuickDropApi) {
           conn: null,
           cancelled: false,
           settled: false,
+          endReceived: false,
           lastActivity: Date.now(),
         });
         setInbox((prev) => [
@@ -470,13 +466,18 @@ export function useQuickDrop(api: QuickDropApi) {
         ]);
         return;
       }
-      if (msg.type === 'file-received') {
-        receiptWaiters.current.get(msg.id)?.(msg.ok);
-        receiptWaiters.current.delete(msg.id);
-        return;
-      }
       if (msg.type === 'file-end') {
-        void finalizeIncomingRef.current(msg.id, msg.sha256);
+        // Control and bytes ride different channels with no cross-ordering:
+        // verify only once BOTH the end marker and every declared byte
+        // have arrived (either may legitimately come first).
+        const rt = inRt.current.get(msg.id);
+        if (rt && !rt.settled && !rt.cancelled) {
+          rt.endReceived = true;
+          rt.lastActivity = Date.now();
+          if (rt.receivedBytes >= rt.total) {
+            void finalizeIncomingRef.current(msg.id, msg.sha256);
+          }
+        }
         return;
       }
       // file-cancel: settle whichever side of this transfer is live here.
@@ -537,6 +538,9 @@ export function useQuickDrop(api: QuickDropApi) {
           return;
         }
         patchIn(transferId as string, { received: rt.receivedBytes });
+        if (rt.endReceived && rt.receivedBytes >= rt.total) {
+          void finalizeIncomingRef.current(transferId as string, rt.hash);
+        }
       });
       conn.on('close', () => {
         if (!rt.settled) failIn(transferId as string, 'Connection lost mid-transfer.');
@@ -577,20 +581,9 @@ export function useQuickDrop(api: QuickDropApi) {
           blobUrl: url,
           error: null,
         });
-        apiRef.current.sendExtension(rt.fromPeerId, FILE_CHANNEL, {
-          type: 'file-received',
-          id,
-          ok: true,
-        });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Verification failed.';
         patchIn(id, { status: 'failed', error: message });
-        apiRef.current.sendExtension(rt.fromPeerId, FILE_CHANNEL, {
-          type: 'file-received',
-          id,
-          ok: false,
-          error: message,
-        });
       } finally {
         try {
           rt.conn?.close();

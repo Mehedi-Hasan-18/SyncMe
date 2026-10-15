@@ -21,7 +21,6 @@ export const MAX_FILE_SIZE_LABEL = '100 MB';
 export const MAX_FILES_PER_BATCH = 5;
 export const MAX_BUFFERED = 512 * 1024;
 export const TRANSFER_TIMEOUT_MS = 30_000;
-export const RECEIPT_TIMEOUT_MS = 30_000;
 export const MAX_INBOX_ENTRIES = 50;
 
 const FRAME_CHUNK = 0x01;
@@ -93,7 +92,6 @@ export function decodeChunk(raw: unknown): DecodedChunk | null {
 export type FileControl =
   | { type: 'file-offer'; id: string; name: string; size: number; mime: string; sha256: string }
   | { type: 'file-end'; id: string; sha256: string }
-  | { type: 'file-received'; id: string; ok: boolean; error?: string }
   | { type: 'file-cancel'; id: string };
 
 const ID_RE = /^[0-9a-f]{32}$/;
@@ -112,13 +110,6 @@ export function normalizeFileControl(raw: unknown): FileControl | null {
   if (type === 'file-end') {
     if (typeof raw.sha256 !== 'string' || !HASH_RE.test(raw.sha256)) return null;
     return { type, id, sha256: raw.sha256.toLowerCase() };
-  }
-  if (type === 'file-received') {
-    if (typeof raw.ok !== 'boolean') return null;
-    if (raw.error !== undefined && (typeof raw.error !== 'string' || raw.error.length > 500)) {
-      return null;
-    }
-    return { type, id, ok: raw.ok, error: typeof raw.error === 'string' ? raw.error : undefined };
   }
   if (type === 'file-offer') {
     if (typeof raw.name !== 'string' || raw.name.length === 0 || raw.name.length > 255) return null;
