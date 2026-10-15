@@ -249,12 +249,12 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
             onChange={(e) => setNameInput(e.target.value)}
             placeholder="Workspace name"
             maxLength={60}
-            className="w-full min-w-0 flex-1 rounded-full border border-zinc-300 bg-transparent px-3 py-2 text-sm shadow-[0_0_10px_rgba(16,185,129,0.25)] lg:p-[18px] lg:text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:shadow-[0_0_16px_rgba(16,185,129,0.45)] dark:border-zinc-700"
+            className="w-full min-w-0 flex-1 rounded-full border border-zinc-300 bg-transparent px-3 py-2 text-sm shadow-[0_0_10px_rgba(16,185,129,0.25)] lg:h-[60px] lg:p-[18px] lg:py-0 lg:text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:shadow-[0_0_16px_rgba(16,185,129,0.45)] dark:border-zinc-700"
           />
           <button
             type="submit"
             disabled={ws.busy}
-            className="w-full shrink-0 rounded-full border border-transparent bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto lg:px-[18px] lg:py-[18px] lg:text-base"
+            className="w-full shrink-0 rounded-full border border-transparent bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto lg:inline-flex lg:h-[60px] lg:items-center lg:px-[18px] lg:py-0 lg:text-base"
           >
             {ws.busy ? 'Creating…' : 'Create'}
           </button>
