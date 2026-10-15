@@ -42,10 +42,31 @@ export interface PeerSync {
   disconnectAll: () => void;
   /** Timestamp of the last applied remote edit, for "peer is typing" hints. */
   lastRemoteAt: number | null;
+  // Side-channel registry (file transfer, future channels) -----------------
+  /** Send a small JSON control payload to a peer over its sync channel. */
+  sendExtension: (peerId: string, channel: string, payload: Record<string, unknown>) => boolean;
+  /** Subscribe to inbound payloads for one extension channel. */
+  onExtension: (channel: string, handler: ExtensionHandler) => () => void;
+  /** Open a dedicated raw DataConnection (e.g. binary file frames). */
+  openRawConnection: (peerId: string, opts: RawConnectionOptions) => Promise<DataConnection>;
+  /** Subscribe to inbound raw connections by label. */
+  onRawConnection: (label: string, handler: (conn: DataConnection) => void) => () => void;
+}
+
+export type ExtensionHandler = (peerId: string, payload: unknown) => void;
+
+export interface RawConnectionOptions {
+  label: string;
+  serialization?: 'binary' | 'json' | 'none';
+  reliable?: boolean;
+  metadata?: unknown;
 }
 
 /** Matches PeerJS's "Could not connect to peer <id>" unavailable error. */
 const PEER_UNAVAILABLE_RE = /Could not connect to peer (\w+)/;
+
+/** Control envelopes stay small — the sync channel is not a file pipe. */
+const MAX_EXTENSION_BYTES = 64_000;
 
 /**
  * Owns the PeerJS peer, all DataConnections, and the shared Yjs document.
@@ -66,6 +87,8 @@ export function usePeerSync(): PeerSync {
   const autoTriedRef = useRef(new Set<string>());
   const manualDialRef = useRef<{ id: string; at: number } | null>(null);
   const expectedCloseRef = useRef(new Set<string>());
+  const extensionsRef = useRef(new Map<string, ExtensionHandler>());
+  const rawHandlersRef = useRef(new Map<string, Set<(conn: DataConnection) => void>>());
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const lifecycleRef = useRef<PeerLifecycle>('starting');
@@ -99,6 +122,14 @@ export function usePeerSync(): PeerSync {
     (conn: DataConnection, raw: unknown) => {
       const msg = normalizeMessage(raw);
       if (!msg) return;
+      if (msg.kind === 'ext') {
+        try {
+          extensionsRef.current.get(msg.channel)?.(conn.peer, msg.payload);
+        } catch {
+          // A misbehaving extension handler must never break sync.
+        }
+        return;
+      }
       const { reply, updated } = channel.handleIncoming(msg);
       if (reply) {
         try {
@@ -258,6 +289,18 @@ export function usePeerSync(): PeerSync {
       }
     });
     peer.on('connection', (conn) => {
+      // Side channels (file transfer, …) bypass the sync protocol entirely.
+      const rawHandlers = rawHandlersRef.current.get(conn.label);
+      if (rawHandlers && rawHandlers.size > 0) {
+        for (const handler of [...rawHandlers]) {
+          try {
+            handler(conn);
+          } catch {
+            // A misbehaving channel handler must never break signaling.
+          }
+        }
+        return;
+      }
       // Both sides dialed at once (typical after a reload on both ends):
       // keep exactly one channel via a deterministic tie-break so we never
       // end up with duplicate connections.
@@ -425,6 +468,105 @@ export function usePeerSync(): PeerSync {
     setPeers([]);
   }, []);
 
+  const sendExtension = useCallback(
+    (targetPeerId: string, channel: string, payload: Record<string, unknown>): boolean => {
+      const conn = connsRef.current.get(targetPeerId);
+      if (!conn || !conn.open) return false;
+      try {
+        const envelope = { kind: 'ext', channel, payload };
+        if (JSON.stringify(envelope).length > MAX_EXTENSION_BYTES) return false;
+        conn.send(envelope);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+
+  const onExtension = useCallback(
+    (channel: string, handler: ExtensionHandler): (() => void) => {
+      extensionsRef.current.set(channel, handler);
+      return () => {
+        if (extensionsRef.current.get(channel) === handler) {
+          extensionsRef.current.delete(channel);
+        }
+      };
+    },
+    [],
+  );
+
+  const openRawConnection = useCallback(
+    (targetPeerId: string, opts: RawConnectionOptions): Promise<DataConnection> => {
+      return new Promise((resolve, reject) => {
+        const peer = peerRef.current;
+        if (!peer || peer.destroyed || peer.disconnected) {
+          reject(new Error('Signaling is not online.'));
+          return;
+        }
+        let conn: DataConnection;
+        try {
+          conn = peer.connect(targetPeerId, {
+            label: opts.label,
+            metadata: opts.metadata,
+            reliable: opts.reliable ?? true,
+            serialization: opts.serialization ?? 'binary',
+          });
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error('Could not open channel.'));
+          return;
+        }
+        const timer = setTimeout(() => {
+          cleanup();
+          try {
+            conn.close();
+          } catch {
+            // Already dead.
+          }
+          reject(new Error('Channel timed out before opening.'));
+        }, 20_000);
+        const cleanup = () => {
+          clearTimeout(timer);
+          conn.off('open', onOpen);
+          conn.off('error', onError);
+          conn.off('close', onClose);
+        };
+        const onOpen = () => {
+          cleanup();
+          resolve(conn);
+        };
+        const onError = (err: unknown) => {
+          cleanup();
+          reject(err instanceof Error ? err : new Error('Channel failed.'));
+        };
+        const onClose = () => {
+          cleanup();
+          reject(new Error('Channel closed before opening.'));
+        };
+        conn.on('open', onOpen);
+        conn.on('error', onError);
+        conn.on('close', onClose);
+      });
+    },
+    [],
+  );
+
+  const onRawConnection = useCallback(
+    (label: string, handler: (conn: DataConnection) => void): (() => void) => {
+      let set = rawHandlersRef.current.get(label);
+      if (!set) {
+        set = new Set();
+        rawHandlersRef.current.set(label, set);
+      }
+      set.add(handler);
+      return () => {
+        set.delete(handler);
+        if (set.size === 0) rawHandlersRef.current.delete(label);
+      };
+    },
+    [],
+  );
+
   return {
     peerId,
     lifecycle,
@@ -438,6 +580,10 @@ export function usePeerSync(): PeerSync {
     connectError,
     clearConnectError,
     disconnectAll,
+    sendExtension,
+    onExtension,
+    openRawConnection,
+    onRawConnection,
     lastRemoteAt,
   };
 }

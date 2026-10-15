@@ -101,6 +101,10 @@ export function sha256Bytes(data: Uint8Array): Uint8Array {
 
 /** SHA-256 hex digest without Web Crypto (insecure-context fallback). */
 export function sha256HexFallback(input: string): string {
-  const bytes = sha256Bytes(new TextEncoder().encode(input));
+  return bytesToHex(sha256Bytes(new TextEncoder().encode(input)));
+}
+
+/** Lowercase hex encoding for arbitrary bytes. */
+export function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }

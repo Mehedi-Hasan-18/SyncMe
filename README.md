@@ -56,7 +56,6 @@ npm run lint    # typecheck only
 6. Reload either page — it auto-reconnects and re-syncs the full state.
 
 ## Pairing test (M2 acceptance)
-
 Requires migration `0002_pairing.sql` (Realtime is enabled by the migration;
 verify in Supabase → Database → Replication that `devices` and
 `pairing_tokens` are listed if approvals don't arrive live).
@@ -76,6 +75,24 @@ verify in Supabase → Database → Replication that `devices` and
 7. Check Supabase → Table Editor: `workspaces` has 1 row, `devices` has one
    row per device (approved flags), `pairing_tokens` holds only hashes —
    never text or file bytes.
+
+## QuickDrop test (M3 acceptance)
+
+Both devices connected (roster Connect or manual id).
+
+1. On the laptop: QuickDrop → **Choose files** (an image + a PDF) → Send to
+   the phone. Progress bars move on both sides; the phone shows each file
+   arriving live.
+2. On completion the phone shows **integrity verified ✓** + **Save** — save
+   and open both files; they must be bit-identical.
+3. Mid-transfer: press **Cancel** on either side → both sides settle to
+   `cancelled`. Press **Retry** on the laptop → transfer restarts and
+   completes.
+4. Oversize check: try a file over 100 MB → rejected immediately with the
+   reason shown, nothing sent.
+5. Privacy check: open DevTools → Network on either device during a transfer
+   and confirm zero upload traffic to anything except PeerJS signaling and
+   Supabase metadata (auth/realtime) — file bytes travel peer-to-peer only.
 
 ## Deploy to Vercel (free)
 

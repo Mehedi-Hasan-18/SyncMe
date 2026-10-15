@@ -17,7 +17,8 @@ import * as Y from 'yjs';
 export type SyncMessage =
   | { kind: 'sync-step1'; sv: string }
   | { kind: 'sync-step2'; update: string }
-  | { kind: 'doc-update'; update: string };
+  | { kind: 'doc-update'; update: string }
+  | { kind: 'ext'; channel: string; payload: Record<string, unknown> };
 
 /** Origin tag used when applying remote updates so they are never rebroadcast. */
 export const REMOTE_ORIGIN = 'remote';
@@ -63,6 +64,19 @@ export function normalizeMessage(raw: unknown): SyncMessage | null {
   if ((msg.kind === 'sync-step2' || msg.kind === 'doc-update') && isB64String(msg.update)) {
     return { kind: msg.kind, update: msg.update };
   }
+  // Extension envelope for side channels (e.g. file-transfer control).
+  // The channel name is allowlisted by shape; payloads are validated by
+  // the owning channel, never trusted blindly.
+  if (
+    msg.kind === 'ext' &&
+    typeof msg.channel === 'string' &&
+    /^[a-z0-9][a-z0-9-]{0,63}$/i.test(msg.channel) &&
+    typeof msg.payload === 'object' &&
+    msg.payload !== null &&
+    !Array.isArray(msg.payload)
+  ) {
+    return { kind: 'ext', channel: msg.channel, payload: msg.payload as Record<string, unknown> };
+  }
   return null;
 }
 
@@ -96,8 +110,12 @@ export function createSyncChannel(doc: Y.Doc): SyncChannel {
           const diff = Y.encodeStateAsUpdate(doc, b64ToU8(msg.sv));
           return { reply: { kind: 'sync-step2', update: u8ToB64(diff) }, updated: false };
         }
-        Y.applyUpdate(doc, b64ToU8(msg.update), REMOTE_ORIGIN);
-        return { reply: null, updated: true };
+        if (msg.kind === 'sync-step2' || msg.kind === 'doc-update') {
+          Y.applyUpdate(doc, b64ToU8(msg.update), REMOTE_ORIGIN);
+          return { reply: null, updated: true };
+        }
+        // 'ext' envelopes are routed by the connection owner, never applied here.
+        return { reply: null, updated: false };
       } catch {
         return { reply: null, updated: false };
       }

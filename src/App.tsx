@@ -4,6 +4,7 @@ import { navigateMain, useHashRoute } from './hooks/useHashRoute';
 import { loadWorkspaceId } from './lib/pairing';
 import { StatusCard } from './components/StatusCard';
 import { ConnectPanel } from './components/ConnectPanel';
+import { QuickDrop } from './components/QuickDrop';
 import { SharedEditor } from './components/SharedEditor';
 import { WorkspacePanel } from './components/WorkspacePanel';
 import { PairView } from './routes/PairView';
@@ -85,6 +86,15 @@ export default function App() {
         onClearConnectError={sync.clearConnectError}
         onConnect={sync.connectTo}
         onDisconnect={sync.disconnectFrom}
+      />
+      <QuickDrop
+        api={{
+          sendExtension: sync.sendExtension,
+          onExtension: sync.onExtension,
+          openRawConnection: sync.openRawConnection,
+          onRawConnection: sync.onRawConnection,
+        }}
+        peers={sync.peers}
       />
       <SharedEditor
         text={sync.text}
