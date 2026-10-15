@@ -5,6 +5,8 @@ interface Props {
   peerCount: number;
   lastRemoteAt: number | null;
   onChange: (next: string) => void;
+  /** Focus mode: editor grows to fill the viewport. */
+  large?: boolean;
 }
 
 function timeAgo(ts: number): string {
@@ -14,7 +16,7 @@ function timeAgo(ts: number): string {
   return `${Math.floor(s / 60)}m ago`;
 }
 
-export function SharedEditor({ text, peerCount, lastRemoteAt, onChange }: Props) {
+export function SharedEditor({ text, peerCount, lastRemoteAt, onChange, large }: Props) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
 
@@ -51,8 +53,10 @@ export function SharedEditor({ text, peerCount, lastRemoteAt, onChange }: Props)
         value={text}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Type here on one device — it appears on the other, live…"
-        rows={8}
-        className="mt-3 w-full resize-y rounded-xl border border-zinc-300 bg-transparent p-3 font-mono text-sm leading-relaxed placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700"
+        rows={large ? 18 : 8}
+        className={`mt-3 w-full resize-y rounded-xl border border-zinc-300 bg-transparent p-3 font-mono text-sm leading-relaxed placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 ${
+          large ? 'min-h-[55dvh] text-base' : ''
+        }`}
       />
 
       <div className="mt-3 flex items-center justify-between gap-2">

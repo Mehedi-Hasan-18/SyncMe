@@ -1,13 +1,20 @@
+import { useState } from 'react';
 import { usePeerSync } from './hooks/usePeerSync';
 import { useSupabaseSession } from './hooks/useSupabaseSession';
-import { navigateMain, useHashRoute } from './hooks/useHashRoute';
+import { useHashRoute, navigateMain } from './hooks/useHashRoute';
+import { useWorkspace } from './hooks/useWorkspace';
 import { loadWorkspaceId } from './lib/pairing';
+import { shortId } from './lib/device';
 import { StatusCard } from './components/StatusCard';
 import { ConnectPanel } from './components/ConnectPanel';
-import { QuickDrop } from './components/QuickDrop';
 import { SharedEditor } from './components/SharedEditor';
 import { WorkspacePanel } from './components/WorkspacePanel';
+import { FocusView } from './components/FocusView';
 import { PairView } from './routes/PairView';
+
+// NOTE: QuickDrop (M3 file transfer) is parked: the hook, protocol, tests,
+// and component remain in the repo, but the section is not mounted while
+// the app stays text-first.
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -34,6 +41,8 @@ export default function App() {
   const session = useSupabaseSession();
   const sync = usePeerSync();
   const route = useHashRoute();
+  const workspace = useWorkspace(session.userId, sync.peerId);
+  const [manage, setManage] = useState(false);
 
   if (route.name === 'pair') {
     return (
@@ -50,22 +59,59 @@ export default function App() {
     );
   }
 
+  const connected = sync.peerCount > 0;
+  const focusDevices = sync.peers
+    .filter((p) => p.status === 'open')
+    .map((p) => ({
+      peerId: p.id,
+      name:
+        workspace.devices.find(
+          (d) => d.peerId === p.id && d.approved && !d.revoked,
+        )?.name ?? shortId(p.id),
+    }));
+
+  // Connected focus mode: device names + one big text field. Everything
+  // else hides behind Manage until explicitly asked for.
+  if (connected && !manage) {
+    return (
+      <Shell>
+        <div className="flex justify-end">
+          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+            ● online
+          </span>
+        </div>
+        <FocusView
+          devices={focusDevices}
+          text={sync.text}
+          peerCount={sync.peerCount}
+          lastRemoteAt={sync.lastRemoteAt}
+          onChange={sync.setText}
+          onDisconnect={sync.disconnectFrom}
+          onManage={() => setManage(true)}
+        />
+      </Shell>
+    );
+  }
+
   return (
     <Shell>
       <div className="flex justify-end">
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            sync.lifecycle === 'open'
-              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
-          }`}
-        >
-          {sync.lifecycle === 'open' ? '● online' : `● ${sync.lifecycle}`}
-        </span>
+        {connected ? (
+          <button
+            type="button"
+            onClick={() => setManage(false)}
+            className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
+          >
+            ● online — back to editor
+          </button>
+        ) : (
+          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            ● {sync.lifecycle}
+          </span>
+        )}
       </div>
       <WorkspacePanel
-        userId={session.userId}
-        peerId={sync.peerId}
+        ws={workspace}
         connectedIds={sync.peers.map((p) => p.id)}
         onConnectPeer={sync.connectTo}
         onDisconnectPeer={sync.disconnectFrom}
@@ -86,15 +132,6 @@ export default function App() {
         onClearConnectError={sync.clearConnectError}
         onConnect={sync.connectTo}
         onDisconnect={sync.disconnectFrom}
-      />
-      <QuickDrop
-        api={{
-          sendExtension: sync.sendExtension,
-          onExtension: sync.onExtension,
-          openRawConnection: sync.openRawConnection,
-          onRawConnection: sync.onRawConnection,
-        }}
-        peers={sync.peers}
       />
       <SharedEditor
         text={sync.text}

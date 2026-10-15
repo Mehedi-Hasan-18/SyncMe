@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { useWorkspace } from '../hooks/useWorkspace';
+import type { Workspace } from '../hooks/useWorkspace';
 import { formatCountdown, msUntilExpiry, shortId } from '../lib/device';
 
 function useNow(stepMs: number, active: boolean): number {
@@ -21,16 +21,14 @@ function timeAgo(iso: string): string {
 }
 
 interface Props {
-  userId: string | null;
-  peerId: string;
+  ws: Workspace;
   connectedIds: string[];
   onConnectPeer: (peerId: string) => string | null;
   onDisconnectPeer: (peerId: string) => void;
   onDisconnectAll: () => void;
 }
 
-export function WorkspacePanel({ userId, peerId, connectedIds, onConnectPeer, onDisconnectPeer, onDisconnectAll }: Props) {
-  const ws = useWorkspace(userId, peerId);
+export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPeer, onDisconnectAll }: Props) {
   const [nameInput, setNameInput] = useState('My workspace');
   const [actionError, setActionError] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -166,17 +164,12 @@ export function WorkspacePanel({ userId, peerId, connectedIds, onConnectPeer, on
           />
           <button
             type="submit"
-            disabled={ws.busy || !userId}
+            disabled={ws.busy}
             className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {ws.busy ? 'Creating…' : 'Create'}
           </button>
         </form>
-        {!userId && (
-          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            Waiting for sign-in to finish…
-          </p>
-        )}
         {actionError && (
           <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">{actionError}</p>
         )}
