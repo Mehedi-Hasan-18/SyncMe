@@ -185,6 +185,14 @@ export async function requestJoin(
   if (!workspaceId || workspaceId !== expectedWorkspaceId) {
     throw new Error('This code is invalid, expired, or already used. Ask for a fresh code.');
   }
+  // Re-joining after a revoke: drop our own stale revoked rows first so the
+  // roster doesn't accumulate ghosts (RLS permits deleting our own rows).
+  await sb
+    .from('devices')
+    .delete()
+    .eq('workspace_id', workspaceId as string)
+    .eq('user_id', userId)
+    .eq('revoked', true);
   const { data: row, error: insertError } = await sb
     .from('devices')
     .insert({
