@@ -195,7 +195,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
         </h2>        <button
           type="button"
           onClick={() => mutate(() => ws.leave())}
-          className="shrink-0 rounded-md px-2 py-1 text-xs lg:text-base text-zinc-500 hover:bg-zinc-100 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="shrink-0 rounded-md bg-red-600 px-2.5 py-1 text-xs lg:text-base font-medium text-white hover:bg-red-700"
         >
           Leave
         </button>
