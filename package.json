@@ -1,0 +1,31 @@
+{
+  "name": "syncme",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OneSpace — a cross-device workspace: shared clipboard + QuickDrop over peer-to-peer WebRTC.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.10",
+    "peerjs": "^1.5.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "yjs": "^13.6.27"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.12",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "tailwindcss": "^4.1.12",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4"
+  }
+}

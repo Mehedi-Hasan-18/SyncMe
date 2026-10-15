@@ -1,0 +1,22 @@
+name: supabase-keepalive
+
+# Pings the free Supabase project every 3 days so it never auto-pauses
+# from inactivity. Requires two repository secrets:
+#   SUPABASE_URL       e.g. https://xxxx.supabase.co
+#   SUPABASE_ANON_KEY  the anon/publishable key (public by design)
+# Set them in GitHub → repo → Settings → Secrets and variables → Actions.
+
+on:
+  schedule:
+    - cron: '0 9 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          curl -fsS -o /dev/null \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/workspaces?select=id&limit=1"
