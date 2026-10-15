@@ -257,8 +257,24 @@ export function useQuickDrop(api: QuickDropApi) {
         // No receiver confirmation by design (auto-accept): the sender is
         // done once every byte is flushed and file-end is sent. Integrity is
         // verified receiver-side and shown as its own state there.
+        //
+        // Settle BEFORE closing: the receiver owns the outcome from here.
+        // Then drain the channel to zero and linger briefly — closing with
+        // bytes still in SCTP buffers silently discards the tail.
         rt.settled = true;
-        patchOut(id, { status: 'done', sent: rt.file.size, error: null });
+        if (dc) {
+          const drainStart = Date.now();
+          while (dc.bufferedAmount > 0 && Date.now() - drainStart < 15_000) {
+            await waitForDrain(dc, 0);
+          }
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        if (rt.cancelled) {
+          patchOut(id, { status: 'cancelled', error: null });
+          live.sendExtension(rt.peerId, FILE_CHANNEL, { type: 'file-cancel', id });
+        } else {
+          patchOut(id, { status: 'done', sent: rt.file.size, error: null });
+        }
       } catch (err) {
         if (err instanceof Cancelled || rt.cancelled) {
           rt.settled = true;
