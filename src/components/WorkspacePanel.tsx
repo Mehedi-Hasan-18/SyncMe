@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Workspace } from '../hooks/useWorkspace';
 import { formatCountdown, msUntilExpiry, shortId } from '../lib/device';
@@ -141,17 +141,25 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
     return (
       <section aria-label="Workspace" className={card}>
         <h2 className="text-sm font-normal lg:text-[21px]">Private workspace</h2>
-        <ol className="mt-3 space-y-2 lg:flex lg:items-center lg:gap-6 lg:space-y-0">
+        <ol className="mt-3 space-y-2 lg:flex lg:items-center lg:gap-3 lg:space-y-0">
           {['Create the workspace', 'Connect your laptop', 'Type anything'].map((title, i) => (
-            <li key={title} className="flex items-center gap-2.5">
-              <span
-                aria-hidden="true"
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white"
-              >
-                {i + 1}
-              </span>
-              <span className="text-xs font-semibold lg:text-base">{title}</span>
-            </li>
+            <Fragment key={title}>
+              {i > 0 && (
+                <span aria-hidden="true" className="flex justify-center font-bold text-emerald-600">
+                  <span className="lg:hidden">↓</span>
+                  <span className="hidden lg:inline">→</span>
+                </span>
+              )}
+              <li key={title} className="flex items-center gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white"
+                >
+                  {i + 1}
+                </span>
+                <span className="text-xs font-semibold lg:text-base">{title}</span>
+              </li>
+            </Fragment>
           ))}
         </ol>
         <form
