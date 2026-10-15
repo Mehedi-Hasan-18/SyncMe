@@ -142,10 +142,28 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
     return (
       <section aria-label="Workspace" className={card}>
         <h2 className="text-sm font-semibold lg:text-[21px]">Private workspace</h2>
-        <p className="mt-1 text-xs lg:text-base text-zinc-500 dark:text-zinc-400">
-          Create a private workspace on this device, then pair your other devices with a QR code.
-          Only membership metadata is stored — never your text or files.
-        </p>
+        <ol className="mt-3 space-y-2">
+          {[
+            { n: '1', title: 'Create the workspace', desc: 'Name it below — it starts on this device.' },
+            { n: '2', title: 'Connect your laptop', desc: 'Scan the QR code, then approve it here.' },
+            { n: '3', title: 'Type anything', desc: 'It appears on every connected device, live.' },
+          ].map((s) => (
+            <li key={s.n} className="flex items-start gap-2.5">
+              <span
+                aria-hidden="true"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white"
+              >
+                {s.n}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold lg:text-base">{s.title}</span>
+                <span className="block text-xs text-zinc-500 lg:text-base dark:text-zinc-400">
+                  {s.desc}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
         <form
           className="mt-3 flex gap-2"
           onSubmit={(e) => {
