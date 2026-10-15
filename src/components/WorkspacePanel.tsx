@@ -33,7 +33,6 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
   const [actionError, setActionError] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [confirmLeave, setConfirmLeave] = useState(false);
   const now = useNow(1000, ws.pairing !== null);
 
   useEffect(() => {
@@ -195,18 +194,10 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
           {ws.workspaceName}
         </h2>        <button
           type="button"
-          onClick={() => {
-            if (confirmLeave) {
-              setConfirmLeave(false);
-              mutate(() => ws.leave());
-            } else {
-              setConfirmLeave(true);
-              setTimeout(() => setConfirmLeave(false), 5000);
-            }
-          }}
+          onClick={() => mutate(() => ws.leave())}
           className="shrink-0 rounded-md px-2 py-1 text-xs lg:text-base text-zinc-500 hover:bg-zinc-100 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
-          {confirmLeave ? 'Click again to leave' : 'Leave'}
+          Leave
         </button>
       </div>
 
