@@ -287,6 +287,11 @@ export function usePeerSync(): PeerSync {
     });
     peer.on('close', () => setLifecycle('closed'));
     peer.on('error', (err) => {
+      if (peer.destroyed) {
+        // Teardown noise (dev StrictMode remount, unmount): never banner it.
+        setLifecycle('closed');
+        return;
+      }
       const type = (err as unknown as { type?: string }).type;
       const failedId = PEER_UNAVAILABLE_RE.exec(err.message ?? '')?.[1];
       const manual = manualDialRef.current;
