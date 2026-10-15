@@ -39,6 +39,7 @@ export default function App() {
         <ConnectPanel
           peers={sync.peers}
           peerId={sync.peerId}
+          ready={sync.lifecycle === 'open'}
           onConnect={sync.connectTo}
           onDisconnect={sync.disconnectFrom}
         />

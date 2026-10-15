@@ -67,3 +67,65 @@ export function createPeer(stableId: string): Peer {
 export function isSelfHostedSignaling(): boolean {
   return Boolean(env.peerHost);
 }
+
+const KNOWN_PEERS_KEY = 'syncme-known-peers';
+const MAX_KNOWN_PEERS = 8;
+
+function storage(): Storage | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readRawKnownPeers(): string[] {
+  const store = storage();
+  if (!store) return [];
+  try {
+    const raw = store.getItem(KNOWN_PEERS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((v): v is string => typeof v === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Device ids we have successfully linked with, so a page reload can
+ * auto-reconnect without manual copy-paste. Stored only on this device
+ * (localStorage) — never on any server.
+ */
+export function loadKnownPeers(selfId: string): string[] {
+  return readRawKnownPeers()
+    .filter((v) => v !== selfId && /^[A-Za-z0-9]{4,64}$/.test(v))
+    .slice(0, MAX_KNOWN_PEERS);
+}
+
+/** Remember a linked device (most-recent first). Never throws. */
+export function rememberPeerId(id: string): void {
+  const store = storage();
+  if (!store) return;
+  try {
+    const ids = [id, ...readRawKnownPeers().filter((v) => v !== id)].slice(0, MAX_KNOWN_PEERS);
+    store.setItem(KNOWN_PEERS_KEY, JSON.stringify(ids));
+  } catch {
+    // Non-fatal: auto-reconnect just won't cover this device.
+  }
+}
+
+/** Forget a device (explicit disconnect, or its id proved stale). */
+export function forgetPeerId(id: string): void {
+  const store = storage();
+  if (!store) return;
+  try {
+    store.setItem(
+      KNOWN_PEERS_KEY,
+      JSON.stringify(readRawKnownPeers().filter((v) => v !== id)),
+    );
+  } catch {
+    // Non-fatal.
+  }
+}

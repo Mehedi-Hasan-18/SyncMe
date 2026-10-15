@@ -4,11 +4,12 @@ import type { RemotePeer } from '../hooks/usePeerSync';
 interface Props {
   peers: RemotePeer[];
   peerId: string;
+  ready: boolean;
   onConnect: (remoteId: string) => string | null;
   onDisconnect: (remoteId: string) => void;
 }
 
-export function ConnectPanel({ peers, peerId, onConnect, onDisconnect }: Props) {
+export function ConnectPanel({ peers, peerId, ready, onConnect, onDisconnect }: Props) {
   const [input, setInput] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -67,11 +68,17 @@ export function ConnectPanel({ peers, peerId, onConnect, onDisconnect }: Props) 
         <button
           type="submit"
           className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-          disabled={!input.trim()}
+          disabled={!ready || !input.trim()}
+          title={ready ? 'Connect' : 'Waiting for signaling…'}
         >
-          Connect
+          {ready ? 'Connect' : 'Waiting…'}
         </button>
       </form>
+      {!ready && (
+        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+          Waiting for signaling to come online — the button enables automatically.
+        </p>
+      )}
       {formError && (
         <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
           {formError}
