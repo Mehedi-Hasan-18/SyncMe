@@ -236,7 +236,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
           );
         })()}
         <form
-          className="mt-3 flex gap-2"
+          className="mt-5 flex flex-col gap-2 sm:flex-row"
           onSubmit={(e) => {
             e.preventDefault();
             mutate(() => ws.createWorkspace(nameInput));
@@ -249,12 +249,12 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
             onChange={(e) => setNameInput(e.target.value)}
             placeholder="Workspace name"
             maxLength={60}
-            className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm lg:text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700"
+            className="w-full min-w-0 flex-1 rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm lg:text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700"
           />
           <button
             type="submit"
             disabled={ws.busy}
-            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold lg:text-base text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="w-full shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold lg:text-base text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
           >
             {ws.busy ? 'Creating…' : 'Create'}
           </button>
