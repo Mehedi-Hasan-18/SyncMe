@@ -1,4 +1,9 @@
 @import "tailwindcss";
+@import "@fontsource-variable/open-sans";
+
+@theme {
+  --font-sans: "Open Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 
 :root {
   color-scheme: light dark;
@@ -6,4 +11,5 @@
 
 body {
   @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  font-family: var(--font-sans);
 }

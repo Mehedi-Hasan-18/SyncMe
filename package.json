@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/open-sans": "^5.3.0",
     "@supabase/supabase-js": "^2.47.10",
     "peerjs": "^1.5.5",
     "qrcode.react": "^4.2.0",

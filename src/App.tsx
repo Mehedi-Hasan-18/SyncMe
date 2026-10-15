@@ -19,9 +19,9 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="flex items-baseline justify-between">
         <div>
           <h1 className="text-xl tracking-tight lg:text-[21px]" aria-label="SyncMe">
-            <span className="font-sans font-extrabold text-emerald-600 dark:text-emerald-400">Sync</span><span className="font-serif font-bold italic text-amber-500 dark:text-amber-400">Me</span>
+            <span className="font-extrabold text-emerald-600 dark:text-emerald-400">Sync</span><span className="font-light italic text-amber-500 dark:text-amber-400">Me</span>
           </h1>
-          <p className="font-serif text-xs italic lg:text-base">
+          <p className="text-xs italic lg:text-base">
             <span className="text-emerald-700 dark:text-emerald-300">One clipboard</span>
             <span className="text-amber-600 dark:text-amber-300"> for all devices.</span>
           </p>
