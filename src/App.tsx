@@ -15,11 +15,11 @@ import { PairView } from './routes/PairView';
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-4 px-4 pb-10 pt-6">
+    <div className="mx-auto flex min-h-dvh w-full max-w-2xl lg:max-w-6xl flex-col gap-4 px-4 pb-10 pt-6">
       <header className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">SyncMe</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <h1 className="text-xl font-bold tracking-tight lg:text-[21px]">SyncMe</h1>
+          <p className="text-xs lg:text-base text-zinc-500 dark:text-zinc-400">
             OneSpace · your devices, one clipboard · peer-to-peer
           </p>
         </div>
@@ -68,7 +68,7 @@ export default function App() {
     return (
       <Shell>
         <div className="flex justify-end">
-          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs lg:text-base font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
             ● online
           </span>
         </div>
@@ -95,12 +95,12 @@ export default function App() {
           <button
             type="button"
             onClick={() => setManage(false)}
-            className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
+            className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs lg:text-base font-medium text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
           >
             ● online — back to editor
           </button>
         ) : (
-          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs lg:text-base font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200">
             ● {sync.lifecycle}
           </span>
         )}

@@ -34,7 +34,7 @@ export function FocusView({ devices, text, peerCount, lastRemoteAt, onChange, on
               key={d.peerId}
               className="flex max-w-full items-center gap-1.5 rounded-full bg-zinc-100 py-1 pl-3 pr-1.5 dark:bg-zinc-800"
             >
-              <span className="truncate text-xs font-medium" title={d.peerId}>
+              <span className="truncate text-xs lg:text-base font-medium" title={d.peerId}>
                 {d.name}
               </span>
               <button
@@ -42,7 +42,7 @@ export function FocusView({ devices, text, peerCount, lastRemoteAt, onChange, on
                 onClick={() => onDisconnect(d.peerId)}
                 aria-label={`Disconnect ${d.name}`}
                 title={`Disconnect ${d.name}`}
-                className="rounded-full px-1.5 text-xs text-zinc-400 hover:bg-zinc-200 hover:text-red-600 dark:hover:bg-zinc-700"
+                className="rounded-full px-1.5 text-xs lg:text-base text-zinc-400 hover:bg-zinc-200 hover:text-red-600 dark:hover:bg-zinc-700"
               >
                 ✕
               </button>
@@ -52,7 +52,7 @@ export function FocusView({ devices, text, peerCount, lastRemoteAt, onChange, on
         <button
           type="button"
           onClick={onManage}
-          className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs lg:text-base font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
           Manage
         </button>

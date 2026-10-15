@@ -35,8 +35,8 @@ export function SharedEditor({ text, peerCount, lastRemoteAt, onChange, large }:
   return (
     <section aria-label="Shared clipboard" className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">Shared clipboard</h2>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        <h2 className="text-sm font-semibold lg:text-[21px]">Shared clipboard</h2>
+        <span className="text-xs lg:text-base text-zinc-500 dark:text-zinc-400">
           {peerCount === 0
             ? 'editing locally — connect a device to sync'
             : lastRemoteAt
@@ -54,26 +54,26 @@ export function SharedEditor({ text, peerCount, lastRemoteAt, onChange, large }:
         onChange={(e) => onChange(e.target.value)}
         placeholder="Type here on one device — it appears on the other, live…"
         rows={large ? 18 : 8}
-        className={`mt-3 w-full resize-y rounded-xl border border-zinc-300 bg-transparent p-3 font-mono text-sm leading-relaxed placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 ${
+        className={`mt-3 w-full resize-y rounded-xl border border-zinc-300 bg-transparent p-3 font-mono text-sm lg:text-base leading-relaxed placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 ${
           large ? 'min-h-[55dvh] text-base' : ''
         }`}
       />
 
       <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        <span className="text-xs lg:text-base text-zinc-500 dark:text-zinc-400">
           {text.length} character{text.length === 1 ? '' : 's'}
         </span>
         <button
           type="button"
           onClick={copy}
           disabled={!text}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold lg:text-[21px] text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
           {copied ? 'Copied ✓' : 'Copy to clipboard'}
         </button>
       </div>
       {copyError && (
-        <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-xs lg:text-base text-red-600 dark:text-red-400">
           {copyError}
         </p>
       )}
