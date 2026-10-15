@@ -236,7 +236,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
           );
         })()}
         <form
-          className="mt-5 flex flex-col gap-2 sm:flex-row"
+          className="mt-5 flex flex-col gap-2 sm:flex-row lg:max-w-md"
           onSubmit={(e) => {
             e.preventDefault();
             mutate(() => ws.createWorkspace(nameInput));
