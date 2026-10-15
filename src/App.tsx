@@ -6,7 +6,6 @@ import { useWorkspace } from './hooks/useWorkspace';
 import { loadWorkspaceId } from './lib/pairing';
 import { shortId } from './lib/device';
 import { WorkspacePanel } from './components/WorkspacePanel';
-import { ConnectPanel } from './components/ConnectPanel';
 import { FocusView } from './components/FocusView';
 import { PairView } from './routes/PairView';
 
@@ -86,9 +85,9 @@ export default function App() {
     );
   }
 
-  // Manage mode is workspace-only: device names with disconnect/revoke,
-  // pairing, and approvals — nothing else. The manual id box appears only
-  // in the unconnected connect screen, where it is the way in.
+  // Workspace-only outside focus mode: pairing (QR/link), approvals, and
+  // the roster with one-click Connect/Revoke. No manual id box anywhere —
+  // QR pairing is the way in, roster buttons the way back.
   return (
     <Shell>
       <div className="flex justify-end">
@@ -113,17 +112,6 @@ export default function App() {
         onDisconnectPeer={sync.disconnectFrom}
         onDisconnectAll={sync.disconnectAll}
       />
-      {!connected && (
-        <ConnectPanel
-          peers={sync.peers}
-          peerId={sync.peerId}
-          ready={sync.lifecycle === 'open'}
-          connectError={sync.connectError}
-          onClearConnectError={sync.clearConnectError}
-          onConnect={sync.connectTo}
-          onDisconnect={sync.disconnectFrom}
-        />
-      )}
     </Shell>
   );
 }
