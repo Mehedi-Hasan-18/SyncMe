@@ -98,7 +98,7 @@ export function PairView({ ws, token, session, hasWorkspace, peerId, onDone }: P
 
   return (
     <section aria-label="Join workspace" className={card}>
-      <h2 className="text-sm font-semibold lg:text-[21px]">Join private workspace</h2>
+      <h2 className="text-sm font-normal lg:text-[21px]">Join private workspace</h2>
 
       {step === 'form' && (
         <form onSubmit={join} className="mt-3">
@@ -130,7 +130,7 @@ export function PairView({ ws, token, session, hasWorkspace, peerId, onDone }: P
           <button
             type="submit"
             disabled={session.status !== 'ready'}
-            className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold lg:text-[21px] text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold lg:text-base text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {session.status === 'ready' ? 'Request to join' : 'Signing in…'}
           </button>

@@ -35,7 +35,7 @@ export function SharedEditor({ text, peerCount, lastRemoteAt, onChange, large }:
   return (
     <section aria-label="Shared clipboard" className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold lg:text-[21px]">Shared clipboard</h2>
+        <h2 className="text-sm font-normal lg:text-[21px]">Shared clipboard</h2>
         <span className="text-xs lg:text-base text-zinc-500 dark:text-zinc-400">
           {peerCount === 0
             ? 'editing locally — connect a device to sync'
@@ -67,7 +67,7 @@ export function SharedEditor({ text, peerCount, lastRemoteAt, onChange, large }:
           type="button"
           onClick={copy}
           disabled={!text}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold lg:text-[21px] text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold lg:text-base text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
           {copied ? 'Copied ✓' : 'Copy to clipboard'}
         </button>

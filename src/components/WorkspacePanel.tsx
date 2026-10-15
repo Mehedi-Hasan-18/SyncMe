@@ -100,7 +100,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
   if (ws.status === 'error') {
     return (
       <section aria-label="Workspace" className={card}>
-        <h2 className="text-sm font-semibold lg:text-[21px]">Private workspace</h2>
+        <h2 className="text-sm font-normal lg:text-[21px]">Private workspace</h2>
         <p role="alert" className="mt-2 rounded-lg bg-red-50 p-2.5 text-xs lg:text-base text-red-700 dark:bg-red-950 dark:text-red-300">
           {ws.error ?? 'Could not load workspace.'}
         </p>
@@ -118,7 +118,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
   if (ws.status === 'revoked') {
     return (
       <section aria-label="Workspace" className={card}>
-        <h2 className="text-sm font-semibold lg:text-[21px]">Private workspace</h2>
+        <h2 className="text-sm font-normal lg:text-[21px]">Private workspace</h2>
         <p role="alert" className="mt-2 rounded-lg bg-red-50 p-2.5 text-xs lg:text-base text-red-700 dark:bg-red-950 dark:text-red-300">
           This device’s access was revoked by another device. Your text and files were never
           stored anywhere — only this device’s membership was removed.
@@ -140,7 +140,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
   if (ws.status === 'none' || !ws.workspaceId) {
     return (
       <section aria-label="Workspace" className={card}>
-        <h2 className="text-sm font-semibold lg:text-[21px]">Private workspace</h2>
+        <h2 className="text-sm font-normal lg:text-[21px]">Private workspace</h2>
         <ol className="mt-3 space-y-2 lg:flex lg:items-center lg:gap-6 lg:space-y-0">
           {['Create the workspace', 'Connect your laptop', 'Type anything'].map((title, i) => (
             <li key={title} className="flex items-center gap-2.5">
@@ -173,7 +173,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
           <button
             type="submit"
             disabled={ws.busy}
-            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold lg:text-[21px] text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold lg:text-base text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {ws.busy ? 'Creating…' : 'Create'}
           </button>
@@ -190,7 +190,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
   return (
     <section aria-label="Workspace" className={card}>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="truncate text-sm font-semibold lg:text-[21px]" title={ws.workspaceName}>
+        <h2 className="truncate text-sm font-normal lg:text-[21px]" title={ws.workspaceName}>
           {ws.workspaceName}
         </h2>        <button
           type="button"
@@ -216,7 +216,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
 
       {ws.pending.length > 0 && (
         <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
-          <h3 className="text-xs font-semibold lg:text-[21px] text-amber-900 dark:text-amber-100">
+          <h3 className="text-xs font-normal lg:text-[21px] text-amber-900 dark:text-amber-100">
             {ws.pending.length} device{ws.pending.length === 1 ? '' : 's'} waiting for approval
           </h3>
           <ul className="mt-2 space-y-2">
@@ -233,7 +233,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
                     type="button"
                     disabled={ws.busy}
                     onClick={() => mutate(() => ws.approve(d.id))}
-                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold lg:text-[21px] text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold lg:text-base text-white hover:bg-emerald-700 disabled:opacity-50"
                   >
                     Approve
                   </button>
@@ -253,7 +253,7 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
       )}
 
       <div className="mt-3">
-        <h3 className="text-xs font-semibold lg:text-[21px] text-zinc-500 dark:text-zinc-400">
+        <h3 className="text-xs font-normal lg:text-[21px] text-zinc-500 dark:text-zinc-400">
           Devices ({ws.devices.filter((d) => d.approved && !d.revoked).length})
         </h3>
         <ul className="mt-1.5 space-y-1.5">
@@ -320,14 +320,14 @@ export function WorkspacePanel({ ws, connectedIds, onConnectPeer, onDisconnectPe
             type="button"
             disabled={ws.busy}
             onClick={() => mutate(() => ws.generateToken())}
-            className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold lg:text-[21px] text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold lg:text-base text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {ws.busy ? 'Generating…' : 'Pair a new device (show QR)'}
           </button>
         ) : (
           <div>
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold lg:text-[21px]">Scan to pair — expires in {formatCountdown(remaining)}</h3>
+              <h3 className="text-xs font-normal lg:text-[21px]">Scan to pair — expires in {formatCountdown(remaining)}</h3>
               <button
                 type="button"
                 onClick={ws.clearPairing}
