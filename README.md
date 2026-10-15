@@ -1,118 +1,89 @@
-# SyncMe — OneSpace (MVP)
+# SyncMe — One clipboard for all devices.
 
-A cross-device workspace: one shared clipboard plus file drops across your own
-phone, laptop, desktop, and tablet. Text and files travel **peer-to-peer over
-WebRTC** — no content is ever stored on any server.
+Stop sending text to yourself. No more pasting links into WhatsApp chats with
+yourself, emailing yourself code snippets, or round-tripping a photo through
+cloud storage just to move it from your phone to your laptop.
 
-- **Frontend:** Vite + React + TypeScript + Tailwind (static SPA)
-- **Metadata only:** Supabase (Postgres + anonymous auth + RLS) — workspaces,
-  devices, pairing tokens. Never text or file bytes.
-- **Signaling:** PeerJS cloud (free tier); self-host later via `VITE_PEER_*`.
-- **Text sync:** Yjs CRDT over the DataConnection (concurrent edits merge).
-- **Files:** QuickDrop in M3 (chunked DataChannel + SHA-256).
-- **Hosting:** Vercel Hobby. **Cost: $0/month.**
+SyncMe gives your phone, laptop, desktop, and tablet **one shared clipboard**:
+type on any device and the text is live on all of them — directly,
+peer-to-peer, with nothing ever stored on a server.
 
-See [`sds.md`](./sds.md) for the full brief, architecture, and milestones.
+## The problem it solves
 
-## Prerequisites
+Moving a link, a code snippet, an address, or a note between your own devices
+today means borrowing somebody else's infrastructure: a chat app, an email
+draft, a cloud drive. That's slow, it litters your apps, and your content sits
+on servers you don't control for a job that needs no server at all.
 
-- Node 20+
-- A free [Supabase](https://supabase.com) project with **Anonymous sign-in
-  enabled** (Authentication → Providers → Anonymous → on)
-- Migrations applied in order (via `supabase db push` or the SQL editor):
-  1. [`supabase/migrations/0001_init.sql`](./supabase/migrations/0001_init.sql) —
-     workspaces, devices, pairing tokens + RLS
-  2. [`supabase/migrations/0002_pairing.sql`](./supabase/migrations/0002_pairing.sql) —
-     approval flag, peer ids, approve/revoke RPCs, Realtime publication
+SyncMe removes the middleman. Your devices talk **directly to each other**
+over encrypted WebRTC connections:
 
-## Run locally
+- **Shared clipboard** — one text field on every device, synced live.
+  Simultaneous typing merges instead of overwriting (CRDT under the hood).
+- **Private workspaces** — create a workspace, pair each device once with a
+  QR code, approve it from a trusted device. Short-lived, single-use codes;
+  any device can be revoked at any time.
+- **Zero content on servers** — Supabase holds only membership metadata
+  (workspaces, devices, hashed pairing codes). Text travels peer-to-peer and
+  lives only on your devices.
+
+## How to use it
+
+You need two devices on the same Wi-Fi (e.g. your phone + laptop).
+
+**1. Create the workspace** — open the app, give the workspace a name,
+press Create. This device becomes the owner.
+
+**2. Connect your laptop** — press *Pair a new device*, scan the QR code
+with your other device (or open the copied invite link), name it, and
+request to join. Approve the request on the first device. The code expires
+in 5 minutes and works exactly once.
+
+**3. Type anything** — once linked, the app collapses to what matters:
+device names on top, one big text field below. Type on either side; it
+appears on the other, live. The **Copy** button moves it to the native
+clipboard (browsers require this tap — no page can read your clipboard
+silently).
+
+**Managing devices** — press **Manage** for the workspace view: connected
+devices with one-click Connect, pending approvals, new pairing codes,
+per-device **Revoke**, and **Leave**. Revoking drops the link immediately on
+both sides and the removed device cannot sneak back in — re-joining needs a
+fresh invite and a fresh approval.
+
+**Limits to know** — at least one device must be online to sync (no offline
+delivery); approvals need the trusted device's app open; backgrounded mobile
+browsers pause connections until foregrounded.
+
+## For developers
+
+**Stack** — Vite + React + TypeScript + Tailwind (static SPA) · Supabase
+(Postgres metadata + anonymous auth + RLS + Realtime) · PeerJS (signaling) +
+Yjs (CRDT text sync) · Vercel hosting. **Cost to run: $0.**
+
+**Prerequisites** — Node 20+ and a free Supabase project with **Anonymous
+sign-in enabled** (Authentication → Providers → Anonymous) plus the two
+migrations applied in order (`supabase/migrations/0001_init.sql`,
+`0002_pairing.sql`) via `supabase db push` or the SQL editor.
 
 ```bash
 npm install
-cp .env.example .env   # then fill in VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
-npm run dev
+cp .env.example .env   # fill in VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+npm run dev            # LAN-ready (host: true) — open the Network URL on your phone
+npm test               # vitest suite (sync, pairing, transfer protocol)
+npm run build          # typecheck + production build
 ```
 
-`vite.config.ts` sets `server.host: true`, so the dev server listens on your
-LAN — open the printed `http://<your-lan-ip>:5173` URL on your phone to test
-two real devices on the same Wi-Fi.
+**Deploy (free)** — push to GitHub, import in Vercel (Vite auto-detected),
+add the same `VITE_*` variables under Project → Settings → Environment
+Variables, deploy. HTTPS included, which also unlocks clipboard APIs on
+mobile. A GitHub Actions cron (`.github/workflows/keepalive.yml`, needs the
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` repo secrets) pings Supabase every 3 days
+so the free project never pauses.
 
-Useful scripts:
-
-```bash
-npm run build   # typecheck + production build
-npm test        # vitest suite (sync protocol, concurrent-edit merge, …)
-npm run lint    # typecheck only
-```
-
-## Two-device test (M1 acceptance)
-
-1. `npm run dev` on your laptop; open the URL on the laptop.
-2. Open the LAN URL on your phone (same Wi-Fi).
-3. On one device, press **Copy my id**, paste it into the other device's
-   **Connect** box, and press Connect.
-4. Type in the shared editor on either side — text appears live on the other.
-5. Type **simultaneously** on both — both contributions survive (CRDT merge).
-6. Reload either page — it auto-reconnects and re-syncs the full state.
-
-## Pairing test (M2 acceptance)
-Requires migration `0002_pairing.sql` (Realtime is enabled by the migration;
-verify in Supabase → Database → Replication that `devices` and
-`pairing_tokens` are listed if approvals don't arrive live).
-
-1. On the laptop: **Create** a private workspace.
-2. Press **Pair a new device** — a QR code + invite link appear (5:00 countdown).
-3. On the phone: scan the QR (or open the copied link), name the device,
-   **Request to join**. The phone shows a waiting screen.
-4. On the laptop: the request appears in amber — press **Approve**. The phone
-   joins automatically and appears in the device list.
-5. Negative paths: let a code expire (or press **New code**) and join with the
-   old link → rejected. Request again and press **Deny** → phone shows denial.
-   Reuse the same link twice → second attempt rejected (single-use).
-6. **Revoke**: on either device, revoke the other — it drops from the list and
-   the revoked device shows an "access revoked" banner. **Connect** buttons on
-   the roster link members with one click, no id typing.
-7. Check Supabase → Table Editor: `workspaces` has 1 row, `devices` has one
-   row per device (approved flags), `pairing_tokens` holds only hashes —
-   never text or file bytes.
-
-## QuickDrop test (M3 acceptance)
-
-Both devices connected (roster Connect or manual id).
-
-1. On the laptop: QuickDrop → **Choose files** (an image + a PDF) → Send to
-   the phone. Progress bars move on both sides; the phone shows each file
-   arriving live.
-2. On completion the phone shows **integrity verified ✓** + **Save** — save
-   and open both files; they must be bit-identical.
-3. Mid-transfer: press **Cancel** on either side → both sides settle to
-   `cancelled`. Press **Retry** on the laptop → transfer restarts and
-   completes.
-4. Oversize check: try a file over 100 MB → rejected immediately with the
-   reason shown, nothing sent.
-5. Privacy check: open DevTools → Network on either device during a transfer
-   and confirm zero upload traffic to anything except PeerJS signaling and
-   Supabase metadata (auth/realtime) — file bytes travel peer-to-peer only.
-
-## Deploy to Vercel (free)
-
-1. Push this repo to GitHub.
-2. Vercel → Add New → Project → Import the repo (Vite is auto-detected).
-3. Add the **same** `VITE_*` variables from `.env` in
-   Project → Settings → Environment Variables.
-4. Deploy — you get HTTPS on `*.vercel.app`, which browsers require for
-   clipboard and camera/QR features.
-
-## Keep-alive
-
-The workflow in [`.github/workflows/keepalive.yml`](./.github/workflows/keepalive.yml)
-pings Supabase every 3 days so the free project never pauses. Add the
-`SUPABASE_URL` and `SUPABASE_ANON_KEY` repo secrets to enable it.
-
-## Privacy model
-
-- Supabase holds only metadata: workspaces, device registrations, hashed
-  pairing tokens. Row-Level Security isolates workspaces (`auth.uid()`).
-- Pairing tokens are stored as hashes and consumed atomically (single-use).
-- Clipboard access is always user-triggered; no silent monitoring.
-- No offline delivery in the MVP: at least one peer must be online to sync.
+**Status** — text sync (M1) and secure pairing (M2) are live and validated on
+real devices. File transfer (M3 QuickDrop: chunked P2P + SHA-256 +
+cancel/retry) is fully implemented and tested but **parked and unmounted**
+while the app stays text-first — see `src/components/QuickDrop.tsx`,
+`src/hooks/useQuickDrop.ts`, `src/lib/transfer.ts`, `tests/transfer.test.ts`
+to bring it back. Full brief and milestones: [`sds.md`](./sds.md).
