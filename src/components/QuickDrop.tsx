@@ -1,7 +1,12 @@
 import { useRef, useState } from 'react';
 import type { RemotePeer } from '../hooks/usePeerSync';
 import { useQuickDrop, type QuickDropApi } from '../hooks/useQuickDrop';
-import { MAX_FILE_SIZE_LABEL, MAX_FILES_PER_BATCH, progressPercent } from '../lib/transfer';
+import {
+  MAX_FILE_SIZE_LABEL,
+  MAX_FILES_PER_BATCH,
+  progressPercent,
+  validateOutgoing,
+} from '../lib/transfer';
 
 interface Props {
   api: QuickDropApi;
@@ -52,6 +57,8 @@ export function QuickDrop({ api, peers }: Props) {
   const [target, setTarget] = useState('');
   const [sending, setSending] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [staged, setStaged] = useState<File[]>([]);
+  const [stagedRejects, setStagedRejects] = useState<{ name: string; reason: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const openPeers = peers.filter((p) => p.status === 'open');
@@ -61,13 +68,27 @@ export function QuickDrop({ api, peers }: Props) {
     inbox.some((t) => t.status === 'complete' || t.status === 'failed' || t.status === 'cancelled');
 
   const submitFiles = async (files: File[]) => {
-    if (!activeTarget || files.length === 0 || sending) return;
+    if (files.length === 0) return;
+    // Validate at stage time so oversize picks are rejected immediately,
+    // even before any device is connected.
+    const { accepted, rejected: bad } = validateOutgoing(files);
+    if (bad.length > 0) {
+      setStagedRejects((prev) => [...bad, ...prev].slice(0, 10));
+    }
+    if (accepted.length > 0) {
+      setStaged((prev) => [...prev, ...accepted.map((a) => a.file)].slice(0, MAX_FILES_PER_BATCH));
+    }
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const sendStaged = async () => {
+    if (!activeTarget || staged.length === 0 || sending) return;
     setSending(true);
     try {
-      await sendFiles(activeTarget.id, files);
+      await sendFiles(activeTarget.id, staged);
+      setStaged([]);
     } finally {
       setSending(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
@@ -95,70 +116,118 @@ export function QuickDrop({ api, peers }: Props) {
 
       {openPeers.length === 0 ? (
         <p className="mt-3 rounded-lg bg-zinc-100 p-2.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-          Connect a device first (above), then drop files here.
+          Connect a device first (above) to send — you can already pick files below.
         </p>
-      ) : (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
+      ) : null}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          void submitFiles([...e.dataTransfer.files]);
+        }}
+        className={`mt-3 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+          dragOver
+            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950'
+            : 'border-zinc-300 dark:border-zinc-700'
+        }`}
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          className="hidden"
+          aria-label="Choose files to send"
+          onChange={(e) => {
+            void submitFiles([...(e.target.files ?? [])]);
           }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            void submitFiles([...e.dataTransfer.files]);
-          }}
-          className={`mt-3 rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
-            dragOver
-              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950'
-              : 'border-zinc-300 dark:border-zinc-700'
-          }`}
+        />
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {dragOver ? 'Drop to stage' : 'Drag files here, or'}
+        </p>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="mt-2 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            className="hidden"
-            aria-label="Choose files to send"
-            onChange={(e) => {
-              void submitFiles([...(e.target.files ?? [])]);
-            }}
-          />
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {dragOver ? 'Drop to send' : 'Drag files here, or'}
-          </p>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={sending}
-            className="mt-2 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            {sending ? 'Preparing…' : 'Choose files'}
-          </button>
-          <div className="mt-3 flex items-center justify-center gap-2">
-            <label htmlFor="qd-target" className="text-xs text-zinc-500 dark:text-zinc-400">
-              Send to
-            </label>
-            <select
-              id="qd-target"
-              value={activeTarget?.id ?? ''}
-              onChange={(e) => setTarget(e.target.value)}
-              className="max-w-45 rounded-lg border border-zinc-300 bg-transparent px-2 py-1.5 font-mono text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700"
-            >
-              {openPeers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.id.slice(0, 12)}…
-                </option>
-              ))}
-            </select>
+          Choose files
+        </button>
+      </div>
+
+      {staged.length > 0 && (
+        <div className="mt-3">
+          <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            Ready to send ({staged.length})
+          </h3>
+          <ul className="mt-1.5 space-y-1.5">
+            {staged.map((f, i) => (
+              <li
+                key={`${f.name}-${f.size}-${i}`}
+                className="flex items-center justify-between gap-2 rounded-lg bg-zinc-100 px-2.5 py-1.5 dark:bg-zinc-800"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-medium" title={f.name}>
+                    {f.name}
+                  </span>
+                  <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {formatBytes(f.size)}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStaged((prev) => prev.filter((_, j) => j !== i))}
+                  aria-label={`Remove ${f.name}`}
+                  className="shrink-0 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-200 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex items-center gap-2">
+            {openPeers.length > 0 ? (
+              <>
+                <label htmlFor="qd-target" className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                  Send to
+                </label>
+                <select
+                  id="qd-target"
+                  value={activeTarget?.id ?? ''}
+                  onChange={(e) => setTarget(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-transparent px-2 py-2 font-mono text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700"
+                >
+                  {openPeers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.id.slice(0, 12)}…
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={sendStaged}
+                  disabled={sending || staged.length === 0}
+                  className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {sending ? 'Preparing…' : `Send${staged.length > 1 ? ` ${staged.length}` : ''}`}
+                </button>
+              </>
+            ) : (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {staged.length} file{staged.length === 1 ? '' : 's'} staged — they’ll send once a
+                device connects.
+              </p>
+            )}
           </div>
         </div>
       )}
 
-      {rejected.length > 0 && (
+      {(rejected.length > 0 || stagedRejects.length > 0) && (
         <ul className="mt-3 space-y-1">
-          {rejected.map((r, i) => (
+          {[...stagedRejects, ...rejected].map((r, i) => (
             <li key={`${r.name}-${i}`} role="alert" className="text-xs text-red-600 dark:text-red-400">
               {r.name}: {r.reason}
             </li>
