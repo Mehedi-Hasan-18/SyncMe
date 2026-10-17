@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { usePeerSync } from './hooks/usePeerSync';
 import { useSupabaseSession } from './hooks/useSupabaseSession';
 import { useHashRoute, navigateMain } from './hooks/useHashRoute';
@@ -28,6 +29,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="flex flex-col gap-4">{children}</main>
+      <Analytics />
     </div>
   );
 }
